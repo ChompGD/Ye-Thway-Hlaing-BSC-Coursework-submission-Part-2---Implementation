@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SQUARE JUMP - PERMANENT CYAN SHIFT | Neon Retro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --accent-char: #00ff66;
+            --text-main: #ffffff;
+            --danger: #ff4444;
+            --victory: #00ff88;
+            --exit-yellow: #f8ff00;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-main);
+            user-select: none;
+        }
+        
+        #bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background-color: #000000;
+            background-image: linear-gradient(rgba(0, 255, 102, 0.15) 2px, transparent 2px),
+                              linear-gradient(90deg, rgba(0, 255, 102, 0.15) 2px, transparent 2px);
+            background-size: 90px 90px;
+            transition: background-image 0.05s linear;
+        }
+        
+        #bg-layer::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 25%, rgba(0,0,0,0) 60%, rgba(0,40,15,0.4) 100%);
+            pointer-events: none;
+        }
+        
+        .cyan-flash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+            background: radial-gradient(circle at center, rgba(0, 255, 255, 0) 0%, rgba(0, 255, 255, 0) 100%);
+            transition: background 0.02s linear;
+            mix-blend-mode: screen;
+        }
+        
+        #ui-layer {
+            position: absolute;
+            top: 30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        #ui-layer h2 {
+            font-size: 1.2rem;
+            margin: 0;
+            color: #fff;
+            transition: text-shadow 0.2s, color 0.2s;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .overlay h1 {
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+        }
+        
+        #pause-overlay h1 {
+            text-shadow: 0 0 20px var(--accent-char);
+        }
+        
+        #win-overlay h1 {
+            color: var(--victory);
+            text-shadow: 0 0 20px var(--victory);
+        }
+        
+        .menu-btn {
+            width: 280px;
+            padding: 20px;
+            margin: 10px;
+            background: transparent;
+            border: 3px solid var(--accent-char);
+            color: var(--text-main);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+            text-shadow: 0 0 5px var(--accent-char);
+        }
+        
+        .menu-btn:hover {
+            background: var(--accent-char);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent-char);
+        }
+        
+        .win-btn {
+            border-color: var(--victory);
+            color: var(--victory);
+            text-shadow: 0 0 5px var(--victory);
+        }
+        
+        .win-btn:hover {
+            background: var(--victory);
+            box-shadow: 0 0 20px var(--victory);
+        }
+        
+        .exit-btn {
+            border-color: var(--exit-yellow);
+            color: var(--exit-yellow);
+            text-shadow: 0 0 5px var(--exit-yellow);
+        }
+        
+        .exit-btn:hover {
+            background: var(--exit-yellow);
+            color: #000;
+            box-shadow: 0 0 20px var(--exit-yellow);
+        }
+        
+        .exit-red-btn {
+            border-color: var(--danger);
+            color: var(--danger);
+            text-shadow: 0 0 5px var(--danger);
+        }
+        
+        .exit-red-btn:hover {
+            background: var(--danger);
+            color: #000;
+            box-shadow: 0 0 20px var(--danger);
+        }
+        
+        canvas {
+            display: block;
+            position: relative;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div id="bg-layer"></div>
+    <div id="cyan-flash" class="cyan-flash-overlay"></div>
+    <div id="ui-layer"><h2 id="percentage-display">0%</h2></div>
+
+    <div id="pause-overlay" class="overlay">
+        <h1>PAUSED</h1>
+        <button class="menu-btn" onclick="togglePause()">CONTINUE</button>
+        <button class="menu-btn" onclick="resetFromPause()">RESTART</button>
+        <button class="menu-btn exit-btn" onclick="exitToLevels()">EXIT</button>
+    </div>
+
+    <div id="win-overlay" class="overlay">
+        <h1>STAGE COMPLETED</h1>
+        <button class="menu-btn win-btn" onclick="resetLevelOnly()">RESTART</button>
+        <button class="menu-btn exit-red-btn" onclick="exitToLevels()">EXIT</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const pauseOverlay = document.getElementById("pause-overlay");
+        const winOverlay = document.getElementById("win-overlay");
+        const bgLayer = document.getElementById("bg-layer");
+        const cyanFlashDiv = document.getElementById("cyan-flash");
+        const percentageDisplay = document.getElementById("percentage-display");
+
+        const bgMusic = new Audio('audio/jumper.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.5;
+
+        const deathSfx = new Audio('audio/death.mp3');
+        deathSfx.volume = 0.5;
+
+        const stageCompleteSfx = new Audio('audio/stage_complete.mp3');
+        stageCompleteSfx.volume = 0.5;
+
+        const BLOCK_SIZE = 40;
+        const ZOOM_LEVEL = 1.5;
+
+        let gameSpeed = 4;
+        let gravity = 0.45;
+        let jumpForce = -9.8;
+        let terminalVelocity = 10;
+
+        let isGameOver = false;
+        let isGameWon = false;
+        let isInputActive = false;
+        let groundY = 0;
+
+        let firstTimeStart = true;
+        let hasStartedOnce = false;
+        let countdownValue = "";
+        let isCountingDown = false;
+
+        let isPaused = false;
+        let totalDistanceTraveled = 0;
+        let bgOffset = 0;
+        let scoreSent = false;
+
+        let autoRestartEnabled = false;
+        let showPercentageEnabled = true;
+        let displayDeathEnabled = false;
+        let autoRestartTimer = null;
+
+        let playerCharImg = 'images/square1.png';
+        let playerCharColor = '#00d2ff';
+        let playerImgObj = new Image();
+        playerImgObj.src = playerCharImg;
+
+        let bgmVolume = 1;
+        let sfxVolume = 1;
+
+        const CYAN_SHIFT_PIXEL = 6240;
+        let isCyanMode = false;
+        let cyanFlashActive = false;
+        let flashIntensity = 0;
+        let flashStartTime = 0;
+        const FLASH_DURATION = 400;
+        let cyanShiftTriggered = false;
+
+        let lastPulseTime = 0;
+        let isPulseActive = false;
+        let activePulseOpacity = 0;
+        let pulseCount = 0;
+        const PULSE_INTERVAL = 2750;
+        const PULSE_DURATION = 500;
+
+        function triggerCyanShift() {
+            if (isCyanMode) return;
+            isCyanMode = true;
+            cyanFlashActive = true;
+            flashIntensity = 1.0;
+            flashStartTime = performance.now();
+
+            let shakeCount = 0;
+            const shakeInterval = setInterval(() => {
+                if (shakeCount >= 5 || !cyanFlashActive) {
+                    clearInterval(shakeInterval);
+                    canvas.style.transform = "";
+                    return;
+                }
+                const shakeA = 5 * (1 - shakeCount/5);
+                canvas.style.transform = `translate(${Math.random() * shakeA - shakeA/2}px, ${Math.random() * shakeA - shakeA/2}px)`;
+                shakeCount++;
+                setTimeout(() => {
+                    if (shakeCount >= 5) canvas.style.transform = "";
+                }, 40);
+            }, 30);
+
+            percentageDisplay.style.transition = "text-shadow 0.1s, color 0.2s";
+            percentageDisplay.style.color = "#00ffff";
+            percentageDisplay.style.textShadow = "0 0 15px cyan, 0 0 25px cyan";
+            updateCyanGridPermanent();
+        }
+
+        function updateCyanFlashAndShift() {
+            if (!cyanFlashActive) return;
+            const elapsed = performance.now() - flashStartTime;
+            if (elapsed >= FLASH_DURATION) {
+                cyanFlashActive = false;
+                flashIntensity = 0;
+                cyanFlashDiv.style.background = "radial-gradient(circle at center, rgba(0, 255, 255, 0) 0%, rgba(0, 255, 255, 0) 100%)";
+                updateCyanGridPermanent();
+                return;
+            }
+            flashIntensity = Math.max(0, 1.0 - (elapsed / FLASH_DURATION) * 1.1);
+            const alpha = Math.min(0.85, flashIntensity * 0.9);
+            cyanFlashDiv.style.background = `radial-gradient(circle at 50% 50%, rgba(0, 255, 255, ${alpha}) 0%, rgba(0, 200, 255, ${alpha * 0.7}) 40%, rgba(0, 255, 255, 0) 80%)`;
+            const flashGridAlpha = 0.3 + flashIntensity * 0.6;
+            bgLayer.style.backgroundImage = `linear-gradient(rgba(0, 255, 255, ${flashGridAlpha}) 2px, transparent 2px), linear-gradient(90deg, rgba(0, 255, 255, ${flashGridAlpha}) 2px, transparent 2px)`;
+        }
+
+        function updateCyanGridPermanent() {
+            if (isCyanMode) {
+                bgLayer.style.backgroundImage = `linear-gradient(rgba(0, 255, 255, 0.25) 2px, transparent 2px), linear-gradient(90deg, rgba(0, 255, 255, 0.25) 2px, transparent 2px)`;
+            } else {
+                if (!isPulseActive) {
+                    bgLayer.style.backgroundImage = `linear-gradient(rgba(0, 255, 102, 0.15) 2px, transparent 2px), linear-gradient(90deg, rgba(0, 255, 102, 0.15) 2px, transparent 2px)`;
+                }
+            }
+        }
+
+        function checkForCyanShift(nowDistance) {
+            if (!cyanShiftTriggered && nowDistance >= CYAN_SHIFT_PIXEL && hasStartedOnce && !isGameOver && !isGameWon) {
+                cyanShiftTriggered = true;
+                triggerCyanShift();
+            }
+        }
+
+        function updateOriginalPulse() {
+            const now = performance.now();
+            if (pulseCount < 3 && (now - lastPulseTime > PULSE_INTERVAL)) {
+                lastPulseTime = now;
+                isPulseActive = true;
+                pulseCount++;
+            }
+            if (isPulseActive) {
+                const timeSincePulse = now - lastPulseTime;
+                if (timeSincePulse < PULSE_DURATION) {
+                    activePulseOpacity = 1 - (timeSincePulse / PULSE_DURATION);
+                    if (!cyanFlashActive) {
+                        if (isCyanMode) {
+                            const gridColor = `rgba(0, 255, 255, ${0.2 + (activePulseOpacity * 0.5)})`;
+                            bgLayer.style.backgroundImage = `linear-gradient(${gridColor} 2px, transparent 2px), linear-gradient(90deg, ${gridColor} 2px, transparent 2px)`;
+                        } else {
+                            const gridColor = `rgba(0, 255, 102, ${0.15 + (activePulseOpacity * 0.7)})`;
+                            bgLayer.style.backgroundImage = `linear-gradient(${gridColor} 2px, transparent 2px), linear-gradient(90deg, ${gridColor} 2px, transparent 2px)`;
+                        }
+                    }
+                } else {
+                    isPulseActive = false;
+                    activePulseOpacity = 0;
+                    if (!cyanFlashActive) updateCyanGridPermanent();
+                }
+            }
+        }
+
+        function resetPulseCycle() {
+            pulseCount = 0;
+            isPulseActive = false;
+            activePulseOpacity = 0;
+            lastPulseTime = performance.now();
+            if (!cyanFlashActive) updateCyanGridPermanent();
+        }
+
+        const player = {
+            x: 160,
+            y: 0,
+            width: BLOCK_SIZE,
+            height: BLOCK_SIZE,
+            dy: 0,
+            rotation: 0,
+            isGrounded: true
+        };
+
+        const startX = 160;
+        const spike1X = startX + (10 * BLOCK_SIZE);
+        const doubleSpikeX = spike1X + (14 * BLOCK_SIZE);
+        const extraSpikeX = doubleSpikeX + (8 * BLOCK_SIZE);
+        const padX = doubleSpikeX + (20 * BLOCK_SIZE);
+        const quadSpikeX = padX + BLOCK_SIZE;
+        const longPlatformX = quadSpikeX + (BLOCK_SIZE * 3) + (10 * BLOCK_SIZE);
+        const tallPlatformX = longPlatformX + (12 * BLOCK_SIZE);
+        const finalSpikesX = tallPlatformX + (8 * BLOCK_SIZE);
+
+        const levelBase = [
+            { type: 'spike', x: spike1X },
+            { type: 'spike', x: doubleSpikeX },
+            { type: 'spike', x: doubleSpikeX + BLOCK_SIZE },
+            { type: 'spike', x: extraSpikeX },
+            { type: 'pad', x: padX, w: BLOCK_SIZE, h: 10 },
+            { type: 'spike', x: quadSpikeX },
+            { type: 'spike', x: quadSpikeX + BLOCK_SIZE },
+            { type: 'spike', x: quadSpikeX + (BLOCK_SIZE * 2) },
+            { type: 'spike', x: quadSpikeX + (BLOCK_SIZE * 3) },
+            { type: 'block', x: longPlatformX - BLOCK_SIZE, w: BLOCK_SIZE * 19, h: BLOCK_SIZE },
+            { type: 'spike', x: tallPlatformX - (BLOCK_SIZE * 4), yOff: BLOCK_SIZE },
+            { type: 'spike', x: tallPlatformX - (BLOCK_SIZE * 3), yOff: BLOCK_SIZE },
+            { type: 'spike', x: (tallPlatformX - (BLOCK_SIZE * 2)) + (5 * BLOCK_SIZE), yOff: BLOCK_SIZE },
+            { type: 'spike', x: (tallPlatformX - BLOCK_SIZE) + (5 * BLOCK_SIZE), yOff: BLOCK_SIZE },
+            { type: 'block', x: tallPlatformX + (5 * BLOCK_SIZE), w: BLOCK_SIZE * 8, h: BLOCK_SIZE * 2 },
+            { type: 'block', x: tallPlatformX + (9 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'spike', x: tallPlatformX + (9 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'block', x: tallPlatformX + (10 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'spike', x: tallPlatformX + (10 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'block', x: tallPlatformX + (11 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'spike', x: tallPlatformX + (11 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (5 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (BLOCK_SIZE * 6) },
+            { type: 'spike', x: finalSpikesX + (BLOCK_SIZE * 7) },
+            { type: 'spike', x: finalSpikesX + (15 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (16 * BLOCK_SIZE) },
+            { type: 'pad', x: finalSpikesX + (23 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10 },
+            { type: 'spike', x: finalSpikesX + (24 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (25 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (26 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (27 * BLOCK_SIZE), w: BLOCK_SIZE * 8, h: BLOCK_SIZE * 3 },
+            { type: 'block', x: finalSpikesX + (31 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 5.5 },
+            { type: 'spike', x: finalSpikesX + (31 * BLOCK_SIZE), yOff: BLOCK_SIZE * 4.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (34 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3 },
+            { type: 'pad', x: finalSpikesX + (41 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10, yOff: BLOCK_SIZE * 1.5 },
+            { type: 'spike', x: finalSpikesX + (43 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (44 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (45 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (46 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (47 * BLOCK_SIZE), w: BLOCK_SIZE * 5, h: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (52 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (53 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (54 * BLOCK_SIZE) },
+            { type: 'pad', x: finalSpikesX + (61 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10 },
+            { type: 'block', x: finalSpikesX + (60 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'block', x: finalSpikesX + (61 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'block', x: finalSpikesX + (62 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'spike', x: finalSpikesX + (60 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (61 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (62 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'pad', x: finalSpikesX + (70 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10 },
+            { type: 'block', x: finalSpikesX + (69 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'block', x: finalSpikesX + (70 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'block', x: finalSpikesX + (71 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'spike', x: finalSpikesX + (69 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (70 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (71 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5, inverted: true },
+            { type: 'pad', x: finalSpikesX + (81 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10 },
+            { type: 'spike', x: finalSpikesX + (82 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (83 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (84 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (85 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (86 * BLOCK_SIZE), w: BLOCK_SIZE * 5, h: BLOCK_SIZE * 2 },
+            { type: 'block', x: finalSpikesX + (88 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 5.5 },
+            { type: 'block', x: finalSpikesX + (89 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 5.5 },
+            { type: 'block', x: finalSpikesX + (90 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 5.5 },
+            { type: 'spike', x: finalSpikesX + (88 * BLOCK_SIZE), yOff: BLOCK_SIZE * 4.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (89 * BLOCK_SIZE), yOff: BLOCK_SIZE * 4.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (90 * BLOCK_SIZE), yOff: BLOCK_SIZE * 4.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (91 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (92 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (93 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (94 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (95 * BLOCK_SIZE), w: BLOCK_SIZE * 9, h: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (102 * BLOCK_SIZE), yOff: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (103 * BLOCK_SIZE), yOff: BLOCK_SIZE * 2 },
+            { type: 'block', x: finalSpikesX + (104 * BLOCK_SIZE), w: BLOCK_SIZE * 6, h: BLOCK_SIZE * 3 },
+            { type: 'pad', x: finalSpikesX + (108 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10, yOff: BLOCK_SIZE * 4.5 },
+            { type: 'block', x: finalSpikesX + (107 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 9 },
+            { type: 'block', x: finalSpikesX + (108 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 9 },
+            { type: 'block', x: finalSpikesX + (109 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 9 },
+            { type: 'spike', x: finalSpikesX + (107 * BLOCK_SIZE), yOff: BLOCK_SIZE * 8, inverted: true },
+            { type: 'spike', x: finalSpikesX + (108 * BLOCK_SIZE), yOff: BLOCK_SIZE * 8, inverted: true },
+            { type: 'spike', x: finalSpikesX + (109 * BLOCK_SIZE), yOff: BLOCK_SIZE * 8, inverted: true },
+            { type: 'spike', x: finalSpikesX + (110 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (111 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (112 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (113 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (114 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (115 * BLOCK_SIZE), w: BLOCK_SIZE * 5, h: BLOCK_SIZE },
+            { type: 'pad', x: finalSpikesX + (119 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10, yOff: BLOCK_SIZE },
+            { type: 'spike', x: finalSpikesX + (120 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (121 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (122 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (123 * BLOCK_SIZE), w: BLOCK_SIZE * 5, h: BLOCK_SIZE * 4 },
+            { type: 'block', x: finalSpikesX + (127 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'spike', x: finalSpikesX + (127 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (128 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (129 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (130 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (131 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (132 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (133 * BLOCK_SIZE), w: BLOCK_SIZE * 5, h: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (138 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (139 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (140 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (141 * BLOCK_SIZE), w: BLOCK_SIZE * 8, h: BLOCK_SIZE, yOff: -BLOCK_SIZE * 0.5 },
+            { type: 'pad', x: finalSpikesX + (141 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10, yOff: BLOCK_SIZE * 0.5 },
+            { type: 'block', x: finalSpikesX + (141 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 6.5 },
+            { type: 'block', x: finalSpikesX + (142 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 6.5 },
+            { type: 'block', x: finalSpikesX + (143 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 6.5 },
+            { type: 'spike', x: finalSpikesX + (141 * BLOCK_SIZE), yOff: BLOCK_SIZE * 5.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (142 * BLOCK_SIZE), yOff: BLOCK_SIZE * 5.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (143 * BLOCK_SIZE), yOff: BLOCK_SIZE * 5.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (149 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (150 * BLOCK_SIZE) },
+            { type: 'pad', x: finalSpikesX + (158 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10, yOff: BLOCK_SIZE * 1.5 },
+            { type: 'spike', x: finalSpikesX + (161 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (162 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (163 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (164 * BLOCK_SIZE), w: BLOCK_SIZE * 5, h: BLOCK_SIZE * 3 },
+            { type: 'block', x: finalSpikesX + (168 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE * 0.5, yOff: BLOCK_SIZE * 3 },
+            { type: 'spike', x: finalSpikesX + (168 * BLOCK_SIZE), yOff: BLOCK_SIZE * 3.5 },
+            { type: 'block', x: finalSpikesX + (169 * BLOCK_SIZE), w: BLOCK_SIZE * 12, h: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (174 * BLOCK_SIZE), yOff: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (175 * BLOCK_SIZE), yOff: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (181 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (182 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (183 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (184 * BLOCK_SIZE), w: BLOCK_SIZE * 7, h: BLOCK_SIZE * 3 },
+            { type: 'pad', x: finalSpikesX + (187 * BLOCK_SIZE), w: BLOCK_SIZE, h: 10, yOff: BLOCK_SIZE * 3 },
+            { type: 'block', x: finalSpikesX + (184 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'block', x: finalSpikesX + (185 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'block', x: finalSpikesX + (186 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'block', x: finalSpikesX + (187 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'block', x: finalSpikesX + (188 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'block', x: finalSpikesX + (189 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'block', x: finalSpikesX + (190 * BLOCK_SIZE), w: BLOCK_SIZE, h: BLOCK_SIZE, yOff: BLOCK_SIZE * 7.5 },
+            { type: 'spike', x: finalSpikesX + (184 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (185 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (186 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (187 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (188 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (189 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (190 * BLOCK_SIZE), yOff: BLOCK_SIZE * 6.5, inverted: true },
+            { type: 'spike', x: finalSpikesX + (191 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (192 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (193 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (194 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (195 * BLOCK_SIZE), w: BLOCK_SIZE * 4, h: BLOCK_SIZE * 2 },
+            { type: 'spike', x: finalSpikesX + (199 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (200 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (201 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (202 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 3 },
+            { type: 'spike', x: finalSpikesX + (204 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (205 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (206 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (207 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 4 },
+            { type: 'spike', x: finalSpikesX + (209 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (210 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (211 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (212 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 4 },
+            { type: 'spike', x: finalSpikesX + (214 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (215 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (216 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (217 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 5 },
+            { type: 'spike', x: finalSpikesX + (219 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (220 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (221 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (222 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 6 },
+            { type: 'spike', x: finalSpikesX + (224 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (225 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (226 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (227 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 7 },
+            { type: 'spike', x: finalSpikesX + (229 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (230 * BLOCK_SIZE) },
+            { type: 'spike', x: finalSpikesX + (231 * BLOCK_SIZE) },
+            { type: 'block', x: finalSpikesX + (232 * BLOCK_SIZE), w: BLOCK_SIZE * 2, h: BLOCK_SIZE * 8 },
+            { type: 'finish', x: finalSpikesX + (245 * BLOCK_SIZE), w: 60 }
+        ];
+
+        const finishLineObj = levelBase.find(o => o.type === 'finish');
+
+        let level = [];
+
+        function sendScoreToParent() {
+            if (scoreSent) return;
+            scoreSent = true;
+            const rawPercent = (totalDistanceTraveled / (finishLineObj.x - 160)) * 100;
+            const finalPercent = Math.min(100, Math.max(0, Math.floor(rawPercent)));
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'updateScore', stage: 'stage02', percentage: finalPercent }, '*');
+            }
+        }
+
+        function exitToLevels() {
+            bgMusic.pause();
+            isPaused = false;
+            pauseOverlay.style.display = 'none';
+            winOverlay.style.display = 'none';
+            if (window.parent !== window) {
+                window.parent.postMessage('startMenuBgm', '*');
+                window.parent.postMessage('navigate-back', '*');
+            } else {
+                window.location.href = 'levels.html';
+            }
+        }
+
+        function togglePause() {
+            if (!hasStartedOnce || isGameOver || isGameWon) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                bgMusic.pause();
+                pauseOverlay.style.display = 'flex';
+            } else {
+                bgMusic.play().catch(() => {});
+                pauseOverlay.style.display = 'none';
+            }
+        }
+
+        function resetFromPause() {
+            isPaused = false;
+            pauseOverlay.style.display = 'none';
+            resetLevelOnly();
+        }
+
+        function startCountdown() {
+            isCountingDown = true;
+            firstTimeStart = false;
+            countdownValue = "3";
+            initLevelData();
+
+            setTimeout(() => { if(isCountingDown) countdownValue = "2"; }, 1000);
+            setTimeout(() => { if(isCountingDown) countdownValue = "1"; }, 2000);
+            setTimeout(() => {
+                if(isCountingDown) {
+                    countdownValue = "GO!";
+                    hasStartedOnce = true;
+                    isCountingDown = false;
+                    bgMusic.currentTime = 65.5;
+                    bgMusic.volume = bgmVolume * 0.5;
+                    bgMusic.play().catch(() => {});
+                    setTimeout(() => { countdownValue = ""; }, 1000);
+                    resetPulseCycle();
+                }
+            }, 3000);
+        }
+
+        function initLevelData() {
+            groundY = canvas.height - 120;
+            totalDistanceTraveled = 0;
+            bgOffset = 0;
+            scoreSent = false;
+            winOverlay.style.display = 'none';
+
+            level = levelBase.map(obj => ({
+                ...obj,
+                w: obj.w || BLOCK_SIZE,
+                h: obj.h || BLOCK_SIZE,
+                y: (groundY / ZOOM_LEVEL) - (obj.yOff || 0),
+                x: obj.x
+            }));
+
+            player.y = (groundY / ZOOM_LEVEL) - player.height;
+            player.dy = 0;
+            player.rotation = 0;
+            isGameOver = false;
+            isGameWon = false;
+            isCyanMode = false;
+            cyanShiftTriggered = false;
+            cyanFlashActive = false;
+            flashIntensity = 0;
+            cyanFlashDiv.style.background = "radial-gradient(circle at center, rgba(0, 255, 255, 0) 0%, rgba(0, 255, 255, 0) 100%)";
+            percentageDisplay.style.color = "#ffffff";
+            percentageDisplay.style.textShadow = "0 0 10px #00ff66";
+
+            resetPulseCycle();
+            updateCyanGridPermanent();
+
+            if (autoRestartTimer) {
+                clearTimeout(autoRestartTimer);
+                autoRestartTimer = null;
+            }
+        }
+
+        function resetLevelOnly() {
+            initLevelData();
+            hasStartedOnce = true;
+            bgMusic.currentTime = 65.5;
+            bgMusic.volume = bgmVolume * 0.5;
+            bgMusic.play().catch(() => {});
+        }
+
+        function update() {
+            if (isPaused || !hasStartedOnce || isGameOver || isGameWon) {
+                if (isGameWon) {
+                    bgMusic.pause();
+                    winOverlay.style.display = 'flex';
+                    sendScoreToParent();
+                }
+                if (isGameOver && hasStartedOnce) {
+                    bgMusic.pause();
+                    document.body.style.backgroundColor = "#000000";
+                    if (autoRestartEnabled && !autoRestartTimer) {
+                        autoRestartTimer = setTimeout(() => {
+                            resetLevelOnly();
+                            autoRestartTimer = null;
+                        }, 1000);
+                    }
+                }
+                if (isGameOver || isPaused) {
+                    isPulseActive = false;
+                    activePulseOpacity = 0;
+                }
+                return;
+            }
+
+            bgOffset -= gameSpeed * 0.5;
+            bgLayer.style.backgroundPosition = `${bgOffset}px 0px`;
+            totalDistanceTraveled += gameSpeed;
+
+            checkForCyanShift(totalDistanceTraveled);
+            updateCyanFlashAndShift();
+            updateOriginalPulse();
+
+            player.dy += gravity;
+            if (player.dy > terminalVelocity) player.dy = terminalVelocity;
+            player.y += player.dy;
+
+            let currentGround = groundY / ZOOM_LEVEL;
+            let onBlock = false;
+
+            level.forEach(obs => {
+                obs.x -= gameSpeed;
+                const pL = player.x + 4, pR = player.x + player.width - 4;
+                const pT = player.y + 4, pB = player.y + player.height - 4;
+                const oL = obs.x, oR = obs.x + obs.w;
+                let oT = obs.y - obs.h, oB = obs.y;
+
+                if (pR > oL && pL < oR) {
+                    if (obs.type === 'spike') {
+                        if (obs.inverted) {
+                            if (pT < oB) {
+                                isGameOver = true;
+                                bgMusic.pause();
+                                deathSfx.volume = sfxVolume;
+                                deathSfx.currentTime = 0;
+                                deathSfx.play().catch(() => {});
+                            }
+                        } else {
+                            if (pB > oT + 10) {
+                                isGameOver = true;
+                                bgMusic.pause();
+                                deathSfx.volume = sfxVolume;
+                                deathSfx.currentTime = 0;
+                                deathSfx.play().catch(() => {});
+                            }
+                        }
+                    } else if (obs.type === 'block') {
+                        if (player.dy >= 0 && (player.y + player.height) <= oT + 20 && (player.y + player.height) >= oT - 10) {
+                            player.y = oT - player.height;
+                            onBlock = true;
+                            player.dy = isInputActive ? jumpForce : 0;
+                        } else if (pB > oT + 5 && pT < oB) {
+                            isGameOver = true;
+                            bgMusic.pause();
+                            deathSfx.volume = sfxVolume;
+                            deathSfx.currentTime = 0;
+                            deathSfx.play().catch(() => {});
+                        }
+                    } else if (obs.type === 'pad') {
+                        if (pB > oT - 5 && pT < oT + 5) {
+                            player.y = oT - player.height;
+                            player.dy = jumpForce * 1.414;
+                        }
+                    }
+                }
+
+                if (obs.type === 'finish' && player.x > obs.x) {
+                    if (!isGameWon) {
+                        isGameWon = true;
+                        stageCompleteSfx.volume = sfxVolume;
+                        stageCompleteSfx.currentTime = 0;
+                        stageCompleteSfx.play().catch(() => {});
+                        sendScoreToParent();
+                    }
+                }
+            });
+
+            if (player.y + player.height >= currentGround) {
+                player.y = currentGround - player.height;
+                player.isGrounded = true;
+                player.dy = isInputActive ? jumpForce : 0;
+            } else if (onBlock) {
+                player.isGrounded = true;
+            } else {
+                player.isGrounded = false;
+            }
+
+            if (!player.isGrounded) player.rotation += 5;
+            else player.rotation = Math.round(player.rotation / 90) * 90;
+
+            const displayPercent = Math.min(100, Math.max(0, Math.floor((totalDistanceTraveled / (finishLineObj.x - 160)) * 100)));
+            if (showPercentageEnabled) {
+                percentageDisplay.style.display = 'block';
+                percentageDisplay.innerText = displayPercent + "%";
+            } else {
+                percentageDisplay.style.display = 'none';
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.scale(ZOOM_LEVEL, ZOOM_LEVEL);
+
+            if (!firstTimeStart) {
+                level.forEach(obs => {
+                    ctx.save();
+                    const mainColor = isCyanMode ? "#00ffff" : "#00ff66";
+                    const shadowColor = isCyanMode ? "#0ff" : "#0f6";
+                    const blockFill = isCyanMode ? "#00ffff" : "#00ff66";
+
+                    if (obs.type === 'spike') {
+                        ctx.beginPath();
+                        if (obs.inverted) {
+                            ctx.moveTo(obs.x, obs.y - obs.h);
+                            ctx.lineTo(obs.x + obs.w / 2, obs.y);
+                            ctx.lineTo(obs.x + obs.w, obs.y - obs.h);
+                        } else {
+                            ctx.moveTo(obs.x, obs.y);
+                            ctx.lineTo(obs.x + obs.w / 2, obs.y - obs.h);
+                            ctx.lineTo(obs.x + obs.w, obs.y);
+                        }
+                        ctx.closePath();
+
+                        if (isPulseActive) {
+                            const pulseAlpha = 0.4 + activePulseOpacity * 0.5;
+                            ctx.fillStyle = isCyanMode ? `rgba(0, 255, 255, ${pulseAlpha})` : `rgba(0, 255, 102, ${activePulseOpacity * 0.4})`;
+                        } else {
+                            ctx.fillStyle = "#000";
+                        }
+                        ctx.fill();
+
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = shadowColor;
+                        ctx.strokeStyle = mainColor;
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    } 
+                    else if (obs.type === 'block') {
+                        ctx.shadowBlur = 12;
+                        ctx.shadowColor = shadowColor;
+                        ctx.fillStyle = blockFill;
+                        ctx.fillRect(obs.x, obs.y - obs.h, obs.w, obs.h);
+                        ctx.shadowBlur = 0;
+
+                        if (isPulseActive) {
+                            const pulseBright = Math.floor(80 + 80 * activePulseOpacity);
+                            ctx.fillStyle = isCyanMode ? `rgb(0, ${pulseBright}, ${pulseBright})` : `rgb(0, ${pulseBright}, 0)`;
+                        } else {
+                            ctx.fillStyle = "#000";
+                        }
+                        ctx.fillRect(obs.x + 4, obs.y - obs.h + 4, obs.w - 8, obs.h - 8);
+                    } 
+                    else if (obs.type === 'pad') {
+                        ctx.shadowBlur = 20;
+                        ctx.shadowColor = "#ffff00";
+                        ctx.fillStyle = "#ffff00";
+                        ctx.fillRect(obs.x, obs.y - obs.h, obs.w, obs.h);
+                    } 
+                    else if (obs.type === 'finish') {
+                        ctx.shadowBlur = 25;
+                        ctx.shadowColor = isCyanMode ? "#0ff" : "#0f8";
+                        ctx.fillStyle = isCyanMode ? "#0ffff0" : "#00ff88";
+                        ctx.fillRect(obs.x, 0, 10, groundY / ZOOM_LEVEL);
+                    }
+                    ctx.restore();
+                });
+
+                ctx.fillStyle = "#000";
+                ctx.fillRect(0, groundY / ZOOM_LEVEL, canvas.width, canvas.height);
+
+                const groundColor = isCyanMode ? "#00ffff" : "#00ff66";
+                ctx.strokeStyle = groundColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, groundY / ZOOM_LEVEL);
+                ctx.lineTo(canvas.width, groundY / ZOOM_LEVEL);
+                ctx.stroke();
+
+                if (!isGameWon && !(isGameOver && !displayDeathEnabled)) {
+                    ctx.save();
+                    ctx.translate(player.x + player.width/2, player.y + player.height/2);
+                    ctx.rotate(player.rotation * Math.PI / 180);
+                    ctx.fillStyle = playerCharColor;
+                    ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+
+                    if (playerImgObj.complete && playerImgObj.naturalWidth > 0) {
+                        ctx.drawImage(playerImgObj, -player.width/2, -player.height/2, player.width, player.height);
+                    } else {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+                        ctx.fillStyle = "#00d2ff";
+                        ctx.fillRect(-player.width/2+4, -player.height/2+4, player.width-8, player.height-8);
+                    }
+                    ctx.restore();
+                }
+            }
+
+            ctx.restore();
+
+            if (firstTimeStart && !isCountingDown) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#fff";
+                ctx.font = '20px "Press Start 2P"';
+                ctx.textAlign = "center";
+                ctx.fillText("CLICK TO START", canvas.width/2, canvas.height/2);
+            }
+
+            if (isCountingDown || countdownValue === "GO!") {
+                ctx.fillStyle = "#fff";
+                ctx.font = '60px "Press Start 2P"';
+                ctx.textAlign = "center";
+                ctx.fillText(countdownValue, canvas.width/2, canvas.height/2);
+            }
+
+            if (isGameOver && !isPaused) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (!autoRestartEnabled) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = '20px "Press Start 2P"';
+                    ctx.textAlign = "center";
+                    ctx.fillText("TRY AGAIN", canvas.width/2, canvas.height/2);
+                }
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener("mousedown", () => {
+            if (isPaused || isGameWon) return;
+            if (isGameOver) {
+                if (!autoRestartEnabled) resetLevelOnly();
+            } else if (firstTimeStart && !isCountingDown) {
+                startCountdown();
+            } else if (hasStartedOnce) {
+                isInputActive = true;
+            }
+        });
+
+        window.addEventListener("mouseup", () => isInputActive = false);
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") togglePause();
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            groundY = canvas.height - 120;
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'requestSettings' }, '*');
+            window.parent.postMessage({ type: 'requestCharData' }, '*');
+        }
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'settingsData') {
+                autoRestartEnabled = event.data.settings.autoRestart;
+                showPercentageEnabled = event.data.settings.showPercentage;
+                displayDeathEnabled = event.data.settings.displayDeath;
+                bgmVolume = event.data.settings.bgm;
+                sfxVolume = event.data.settings.sfx;
+                bgMusic.volume = bgmVolume * 0.5;
+                deathSfx.volume = sfxVolume;
+                stageCompleteSfx.volume = sfxVolume;
+                if (!showPercentageEnabled) {
+                    percentageDisplay.style.display = 'none';
+                }
+            }
+            if (event.data && event.data.type === 'charData') {
+                playerCharImg = event.data.char.img;
+                playerCharColor = event.data.char.color;
+                playerImgObj.src = playerCharImg;
+            }
+        });
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        groundY = canvas.height - 120;
+
+        loop();
+    </script>
+</body>
+</html>

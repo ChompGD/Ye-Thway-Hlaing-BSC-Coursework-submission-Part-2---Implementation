@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQUARE JUMP - Clusterfunk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #bc0000;
+            --accent-char: #00d2ff;
+            --text-main: #ffffff;
+            --danger: #ff4444;
+            --victory: #00ff88;
+            --exit-yellow: #f8ff00;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-main);
+        }
+        
+        #ui-layer {
+            position: absolute;
+            top: 30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        #ui-layer h2 {
+            font-size: 1.2rem;
+            margin: 0;
+            color: #fff;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .overlay h1 {
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+        }
+        
+        #pause-overlay h1 {
+            text-shadow: 0 0 20px var(--accent-char);
+        }
+        
+        #win-overlay h1 {
+            color: var(--victory);
+            text-shadow: 0 0 20px var(--victory);
+        }
+        
+        .menu-btn {
+            width: 280px;
+            padding: 20px;
+            margin: 10px;
+            background: transparent;
+            border: 3px solid var(--accent-char);
+            color: var(--text-main);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        
+        .menu-btn:hover {
+            background: var(--accent-char);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent-char);
+        }
+        
+        .win-btn {
+            border-color: var(--victory);
+            color: var(--victory);
+        }
+        
+        .win-btn:hover {
+            background: var(--victory);
+            box-shadow: 0 0 20px var(--victory);
+        }
+        
+        .exit-btn {
+            border-color: var(--exit-yellow);
+            color: var(--exit-yellow);
+        }
+        
+        .exit-btn:hover {
+            background: var(--exit-yellow);
+            color: #000;
+            box-shadow: 0 0 20px var(--exit-yellow);
+        }
+        
+        .exit-red-btn {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        
+        .exit-red-btn:hover {
+            background: var(--danger);
+            color: #000;
+            box-shadow: 0 0 20px var(--danger);
+        }
+        
+        canvas {
+            display: block;
+            position: relative;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-layer"><h2 id="percentage-display">0%</h2></div>
+
+    <div id="pause-overlay" class="overlay">
+        <h1>PAUSED</h1>
+        <button class="menu-btn" onclick="togglePause()">CONTINUE</button>
+        <button class="menu-btn" onclick="resetFromPause()">RESTART</button>
+        <button class="menu-btn exit-btn" onclick="exitToLevels()">EXIT</button>
+    </div>
+
+    <div id="win-overlay" class="overlay">
+        <h1>STAGE COMPLETED</h1>
+        <button class="menu-btn win-btn" onclick="resetLevelOnly()">RESTART</button>
+        <button class="menu-btn exit-red-btn" onclick="exitToLevels()">EXIT</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const pauseOverlay = document.getElementById("pause-overlay");
+        const winOverlay = document.getElementById("win-overlay");
+        const percentageDisplay = document.getElementById("percentage-display");
+
+        const bgMusic = new Audio('audio/clusterfunk.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.5;
+
+        const deathSfx = new Audio('audio/death.mp3');
+        deathSfx.volume = 0.5;
+
+        const stageCompleteSfx = new Audio('audio/stage_complete.mp3');
+        stageCompleteSfx.volume = 0.5;
+
+        const START_TIME = 0;
+        const BLOCK_SIZE = 40;
+        const ZOOM_LEVEL = 1.5;
+        const START_X_OFFSET = 0;
+
+        let gameSpeed = 4;
+        let gravity = 0.4;
+        let jumpForce = -9.5;
+        let scoreSent = false;
+
+        let isGameOver = false;
+        let isGameWon = false;
+        let isInputActive = false;
+        let groundY = 0;
+
+        let firstTimeStart = true;
+        let hasStartedOnce = false;
+        let countdownValue = "";
+        let isCountingDown = false;
+
+        let isPaused = false;
+        let totalDistanceTraveled = START_X_OFFSET;
+        let canUseOrb = false;
+        let flashOpacity = 0;
+
+        let autoRestartEnabled = false;
+        let showPercentageEnabled = true;
+        let displayDeathEnabled = false;
+        let autoRestartTimer = null;
+
+        let playerCharImg = 'images/square1.png';
+        let playerCharColor = '#00d2ff';
+        let playerImgObj = new Image();
+        playerImgObj.src = playerCharImg;
+
+        let bgmVolume = 1;
+        let sfxVolume = 1;
+
+        const player = {
+            x: 160,
+            y: 0,
+            width: BLOCK_SIZE,
+            height: BLOCK_SIZE,
+            dy: 0,
+            rotation: 0,
+            isGrounded: true
+        };
+
+        const levelBase = [
+            { type: 'spike', x: 480, w: 40, h: 40 },
+            { type: 'spike', x: 520, w: 40, h: 40 },
+            { type: 'spike', x: 885, w: 40, h: 40 },
+            { type: 'spike', x: 920, w: 40, h: 40 },
+            { type: 'spike', x: 955, w: 40, h: 40 },
+            { type: 'spike', x: 1095, w: 40, h: 40, upsideDown: true, yOff: 100 },
+            { type: 'block', x: 1095, w: 40, h: 40, yOff: 140 },
+            { type: 'block', x: 1195, w: 240, h: 80, yOff: 0 },
+            { type: 'spike', x: 1435, w: 40, h: 40 },
+            { type: 'spike', x: 1475, w: 40, h: 40 },
+            { type: 'spike', x: 1515, w: 40, h: 40 },
+            { type: 'pad', x: 1575, w: 40, h: 10, yOff: 0 },
+            { type: 'block', x: 1715, w: 280, h: 120, yOff: 0 },
+            { type: 'spike', x: 1715, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 1955, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 1955, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 1995, w: 40, h: 40 },
+            { type: 'spike', x: 2035, w: 40, h: 40 },
+            { type: 'spike', x: 2075, w: 40, h: 40 },
+            { type: 'spike', x: 2115, w: 40, h: 40 },
+            { type: 'pad', x: 2395, w: 40, h: 10, yOff: 0 },
+            { type: 'spike', x: 2435, w: 40, h: 40 },
+            { type: 'spike', x: 2475, w: 40, h: 40 },
+            { type: 'spike', x: 2515, w: 40, h: 40 },
+            { type: 'spike', x: 2555, w: 40, h: 40 },
+            { type: 'spike', x: 2595, w: 40, h: 40 },
+            { type: 'spike', x: 2635, w: 40, h: 40 },
+            { type: 'spike', x: 2675, w: 40, h: 40 },
+            { type: 'spike', x: 2715, w: 40, h: 40 },
+            { type: 'spike', x: 2755, w: 40, h: 40 },
+            { type: 'spike', x: 2795, w: 40, h: 40 },
+            { type: 'spike', x: 2835, w: 40, h: 40 },
+            { type: 'spike', x: 2875, w: 40, h: 40 },
+            { type: 'pink-orb', x: 2595, w: 40, h: 40, yOff: 80 },
+            { type: 'orb', x: 2755, w: 40, h: 40, yOff: 60 },
+            { type: 'spike', x: 3080, w: 40, h: 40 },
+            { type: 'spike', x: 3115, w: 40, h: 40 },
+            { type: 'spike', x: 3150, w: 40, h: 40 },
+            { type: 'pad', x: 3275, w: 40, h: 10, yOff: 0 },
+            { type: 'spike', x: 3315, w: 40, h: 40 },
+            { type: 'spike', x: 3355, w: 40, h: 40 },
+            { type: 'spike', x: 3395, w: 40, h: 40 },
+            { type: 'block', x: 3435, w: 40, h: 120, yOff: 0 },
+            { type: 'block', x: 3515, w: 40, h: 80, yOff: 0 },
+            { type: 'block', x: 3595, w: 120, h: 40, yOff: 0 },
+            { type: 'pad', x: 3675, w: 40, h: 10, yOff: 40 },
+            { type: 'pink-orb', x: 3735, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 3715, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 3715, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 3675, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 3675, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 3755, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 3755, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 3715, w: 40, h: 40 },
+            { type: 'spike', x: 3755, w: 40, h: 40 },
+            { type: 'spike', x: 3795, w: 40, h: 40 },
+            { type: 'spike', x: 3835, w: 40, h: 40 },
+            { type: 'spike', x: 3875, w: 40, h: 40 },
+            { type: 'pad', x: 4035, w: 40, h: 10, yOff: 0 },
+            { type: 'block', x: 4195, w: 160, h: 120, yOff: 0 },
+            { type: 'spike', x: 4315, w: 40, h: 40, yOff: 120 },
+            { type: 'orb', x: 4435, w: 40, h: 40, yOff: 100 },
+            { type: 'pink-orb', x: 4435, w: 40, h: 40, yOff: 160 },
+            { type: 'block', x: 4555, w: 160, h: 120, yOff: 0 },
+            { type: 'spike', x: 4555, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 4715, w: 40, h: 40 },
+            { type: 'spike', x: 4755, w: 40, h: 40 },
+            { type: 'spike', x: 4795, w: 40, h: 40 },
+            { type: 'spike', x: 4835, w: 40, h: 40 },
+            { type: 'spike', x: 4875, w: 40, h: 40 },
+            { type: 'spike', x: 4915, w: 40, h: 40 },
+            { type: 'spike', x: 4955, w: 40, h: 40 },
+            { type: 'spike', x: 4995, w: 40, h: 40 },
+            { type: 'pink-orb', x: 4875, w: 40, h: 40, yOff: 120 },
+            { type: 'block', x: 5035, w: 200, h: 80, yOff: 0 },
+            { type: 'spike', x: 5235, w: 40, h: 40 },
+            { type: 'spike', x: 5275, w: 40, h: 40 },
+            { type: 'spike', x: 5315, w: 40, h: 40 },
+            { type: 'spike', x: 5355, w: 40, h: 40 },
+            { type: 'block', x: 5395, w: 40, h: 40, yOff: 0 },
+            { type: 'pad', x: 5395, w: 40, h: 10, yOff: 40 },
+            { type: 'pink-orb', x: 5395, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 5435, w: 40, h: 40 },
+            { type: 'spike', x: 5475, w: 40, h: 40 },
+            { type: 'block', x: 5515, w: 320, h: 80, yOff: 0 },
+            { type: 'spike', x: 5515, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 5515, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 5555, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 5555, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 5595, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 5595, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 5635, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 5635, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 5795, w: 40, h: 40, yOff: 80 },
+            { type: 'spike', x: 5835, w: 40, h: 40 },
+            { type: 'spike', x: 5875, w: 40, h: 40 },
+            { type: 'spike', x: 5915, w: 40, h: 40 },
+            { type: 'spike', x: 5955, w: 40, h: 40 },
+            { type: 'spike', x: 5995, w: 40, h: 40 },
+            { type: 'orb', x: 5915, w: 40, h: 40, yOff: 100 },
+            { type: 'block', x: 6035, w: 80, h: 40 },
+            { type: 'pad', x: 6075, w: 40, h: 10, yOff: 40 },
+            { type: 'spike', x: 6115, w: 40, h: 40 },
+            { type: 'spike', x: 6155, w: 40, h: 40 },
+            { type: 'spike', x: 6195, w: 40, h: 40 },
+            { type: 'spike', x: 6235, w: 40, h: 40 },
+            { type: 'block', x: 6275, w: 200, h: 80, yOff: 0 },
+            { type: 'spike', x: 6435, w: 40, h: 40, yOff: 80 },
+            { type: 'block', x: 6475, w: 160, h: 120, yOff: 0 },
+            { type: 'pink-orb', x: 6795, w: 40, h: 40, yOff: 140 },
+            { type: 'pink-orb', x: 6955, w: 40, h: 40, yOff: 140 },
+            { type: 'spike', x: 6795, w: 40, h: 40, upsideDown: true, yOff: 220 },
+            { type: 'spike', x: 6955, w: 40, h: 40, upsideDown: true, yOff: 220 },
+            { type: 'block', x: 6795, w: 40, h: 400, yOff: 260 },
+            { type: 'block', x: 6955, w: 40, h: 400, yOff: 260 },
+            { type: 'spike', x: 6795, w: 40, h: 40, yOff: 60 },
+            { type: 'spike', x: 6955, w: 40, h: 40, yOff: 60 },
+            { type: 'block', x: 6795, w: 40, h: 80, yOff: -20 },
+            { type: 'block', x: 6955, w: 40, h: 80, yOff: -20 },
+            { type: 'spike', x: 8280, w: 40, h: 40 },
+            { type: 'spike', x: 8320, w: 40, h: 40 },
+            { type: 'pad', x: 8520, w: 40, h: 10, yOff: 60 },
+            { type: 'orb', x: 8520, w: 40, h: 40, yOff: 100 },
+            { type: 'spike', x: 8520, w: 40, h: 40, upsideDown: true, yOff: 260 },
+            { type: 'block', x: 8520, w: 40, h: 40, yOff: 300 },
+            { type: 'spike', x: 8560, w: 40, h: 40, upsideDown: true, yOff: 260 },
+            { type: 'block', x: 8560, w: 40, h: 40, yOff: 300 },
+            { type: 'spike', x: 8600, w: 40, h: 40, upsideDown: true, yOff: 260 },
+            { type: 'block', x: 8600, w: 40, h: 40, yOff: 300 },
+            { type: 'block', x: 8640, w: 280, h: 160, yOff: 0 },
+            { type: 'block', x: 9000, w: 40, h: 40, yOff: 40 },
+            { type: 'block', x: 9000, w: 40, h: 40, yOff: 200 },
+            { type: 'block', x: 9000, w: 40, h: 40, yOff: 360 },
+            { type: 'spike', x: 9080, w: 40, h: 40 },
+            { type: 'spike', x: 9120, w: 40, h: 40 },
+            { type: 'spike', x: 9160, w: 40, h: 40 },
+            { type: 'block', x: 9120, w: 40, h: 40, yOff: 120 },
+            { type: 'block', x: 9120, w: 40, h: 40, yOff: 280 },
+            { type: 'block', x: 9240, w: 40, h: 40, yOff: 40 },
+            { type: 'block', x: 9240, w: 40, h: 40, yOff: 200 },
+            { type: 'block', x: 9240, w: 40, h: 40, yOff: 360 },
+            { type: 'spike', x: 9240, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 9240, w: 40, h: 40, yOff: 400 },
+            { type: 'spike', x: 9320, w: 40, h: 40 },
+            { type: 'spike', x: 9360, w: 40, h: 40 },
+            { type: 'spike', x: 9400, w: 40, h: 40 },
+            { type: 'block', x: 9360, w: 40, h: 40, yOff: 120 },
+            { type: 'block', x: 9360, w: 40, h: 40, yOff: 280 },
+            { type: 'block', x: 9480, w: 40, h: 40, yOff: 40 },
+            { type: 'pad', x: 9480, w: 40, h: 10, yOff: 80 },
+            { type: 'block', x: 9480, w: 40, h: 40, yOff: 200 },
+            { type: 'block', x: 9480, w: 40, h: 40, yOff: 360 },
+            { type: 'pad', x: 9480, w: 40, h: 10, yOff: 400 },
+            { type: 'spike', x: 9720, w: 40, h: 40 },
+            { type: 'spike', x: 9760, w: 40, h: 40 },
+            { type: 'spike', x: 9920, w: 40, h: 40 },
+            { type: 'spike', x: 9960, w: 40, h: 40 },
+            { type: 'pad', x: 10160, w: 40, h: 10, yOff: 0 },
+            { type: 'spike', x: 10200, w: 40, h: 40 },
+            { type: 'block', x: 10240, w: 40, h: 80, yOff: 0 },
+            { type: 'spike', x: 10240, w: 40, h: 40, yOff: 80 },
+            { type: 'spike', x: 10280, w: 40, h: 40 },
+            { type: 'orb', x: 10320, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 10280, w: 40, h: 40, upsideDown: true, yOff: 240 },
+            { type: 'block', x: 10280, w: 40, h: 40, yOff: 280 },
+            { type: 'spike', x: 10320, w: 40, h: 40, upsideDown: true, yOff: 240 },
+            { type: 'block', x: 10320, w: 40, h: 40, yOff: 280 },
+            { type: 'spike', x: 10360, w: 40, h: 40, upsideDown: true, yOff: 240 },
+            { type: 'block', x: 10360, w: 40, h: 40, yOff: 280 },
+            { type: 'pink-orb', x: 10400, w: 40, h: 40, yOff: 40 },
+            { type: 'block', x: 10480, w: 160, h: 40, yOff: 120 },
+            { type: 'spike', x: 10560, w: 40, h: 40, upsideDown: true, yOff: 220 },
+            { type: 'block', x: 10560, w: 40, h: 40, yOff: 260 },
+            { type: 'spike', x: 10600, w: 40, h: 40, upsideDown: true, yOff: 220 },
+            { type: 'block', x: 10600, w: 40, h: 40, yOff: 260 },
+            { type: 'block', x: 10720, w: 120, h: 80, yOff: 0 },
+            { type: 'spike', x: 10720, w: 40, h: 40, yOff: 80 },
+            { type: 'spike', x: 10760, w: 40, h: 40, yOff: 80 },
+            { type: 'spike', x: 10800, w: 40, h: 40, yOff: 80 },
+            { type: 'block', x: 10840, w: 200, h: 120, yOff: 0 },
+            { type: 'spike', x: 10960, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 11000, w: 40, h: 40, yOff: 120 },
+            { type: 'orb', x: 11120, w: 40, h: 40, yOff: 100 },
+            { type: 'pad', x: 11120, w: 40, h: 10, yOff: 200 },
+            { type: 'block', x: 11360, w: 40, h: 200, yOff: 0 },
+            { type: 'block', x: 11440, w: 40, h: 160, yOff: 0 },
+            { type: 'block', x: 11520, w: 40, h: 120, yOff: 0 },
+            { type: 'block', x: 11600, w: 40, h: 80, yOff: 0 },
+            { type: 'pink-orb', x: 11600, w: 40, h: 40, yOff: 60 },
+            { type: 'spike', x: 11600, w: 40, h: 40, upsideDown: true, yOff: 180 },
+            { type: 'block', x: 11600, w: 40, h: 80, yOff: 220 },
+            { type: 'spike', x: 11600, w: 40, h: 40, yOff: 300 },
+            { type: 'spike', x: 11640, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 11640, w: 40, h: 80, yOff: 240 },
+            { type: 'spike', x: 11640, w: 40, h: 40, yOff: 320 },
+            { type: 'spike', x: 11645, w: 40, h: 40 },
+            { type: 'spike', x: 11680, w: 40, h: 40 },
+            { type: 'spike', x: 11715, w: 40, h: 40 },
+            { type: 'pad', x: 11960, w: 40, h: 10, yOff: 0 },
+            { type: 'spike', x: 12000, w: 40, h: 40 },
+            { type: 'spike', x: 12040, w: 40, h: 40 },
+            { type: 'spike', x: 12080, w: 40, h: 40 },
+            { type: 'block', x: 12120, w: 160, h: 120, yOff: 0 },
+            { type: 'spike', x: 12280, w: 40, h: 40 },
+            { type: 'spike', x: 12320, w: 40, h: 40 },
+            { type: 'spike', x: 12360, w: 40, h: 40 },
+            { type: 'spike', x: 12400, w: 40, h: 40 },
+            { type: 'spike', x: 12440, w: 40, h: 40 },
+            { type: 'spike', x: 12480, w: 40, h: 40 },
+            { type: 'spike', x: 12520, w: 40, h: 40 },
+            { type: 'pink-orb', x: 12440, w: 40, h: 40, yOff: 100 },
+            { type: 'pad', x: 12440, w: 40, h: 10, yOff: 80 },
+            { type: 'block', x: 12560, w: 200, h: 80, yOff: 0 },
+            { type: 'spike', x: 12680, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 12680, w: 40, h: 40, yOff: 240 },
+            { type: 'spike', x: 12720, w: 40, h: 40, upsideDown: true, yOff: 200 },
+            { type: 'block', x: 12720, w: 40, h: 40, yOff: 240 },
+            { type: 'pad', x: 12700, w: 40, h: 10, yOff: 140 },
+            { type: 'spike', x: 12760, w: 40, h: 40 },
+            { type: 'spike', x: 12800, w: 40, h: 40 },
+            { type: 'spike', x: 12840, w: 40, h: 40 },
+            { type: 'spike', x: 12880, w: 40, h: 40 },
+            { type: 'spike', x: 12920, w: 40, h: 40 },
+            { type: 'spike', x: 12960, w: 40, h: 40 },
+            { type: 'spike', x: 13000, w: 40, h: 40 },
+            { type: 'spike', x: 13040, w: 40, h: 40 },
+            { type: 'spike', x: 13080, w: 40, h: 40 },
+            { type: 'orb', x: 12920, w: 40, h: 40, yOff: 60 },
+            { type: 'orb', x: 12920, w: 40, h: 40, yOff: 120 },
+            { type: 'orb', x: 12920, w: 40, h: 40, yOff: 180 },
+            { type: 'block', x: 13120, w: 240, h: 120, yOff: 0 },
+            { type: 'spike', x: 13280, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 13320, w: 40, h: 40, yOff: 120 },
+            { type: 'spike', x: 13360, w: 40, h: 40 },
+            { type: 'spike', x: 13400, w: 40, h: 40 },
+            { type: 'spike', x: 13440, w: 40, h: 40 },
+            { type: 'spike', x: 13480, w: 40, h: 40 },
+            { type: 'spike', x: 13520, w: 40, h: 40 },
+            { type: 'spike', x: 13560, w: 40, h: 40 },
+            { type: 'spike', x: 13600, w: 40, h: 40 },
+            { type: 'orb', x: 13400, w: 40, h: 40, yOff: 180 },
+            { type: 'pad', x: 13400, w: 40, h: 10, yOff: 160 },
+            { type: 'spike', x: 13885, w: 40, h: 40 },
+            { type: 'spike', x: 13920, w: 40, h: 40 },
+            { type: 'spike', x: 13955, w: 40, h: 40 },
+            { type: 'pad', x: 14160, w: 40, h: 10, yOff: 0 },
+            { type: 'orb', x: 14360, w: 40, h: 40, yOff: 80 },
+            { type: 'block', x: 14480, w: 160, h: 40, yOff: 120 },
+            { type: 'spike', x: 14560, w: 40, h: 40, upsideDown: true, yOff: 220 },
+            { type: 'block', x: 14560, w: 40, h: 40, yOff: 260 },
+            { type: 'spike', x: 14600, w: 40, h: 40, upsideDown: true, yOff: 220 },
+            { type: 'block', x: 14600, w: 40, h: 40, yOff: 260 },
+            { type: 'block', x: 14840, w: 200, h: 40, yOff: 80 },
+            { type: 'spike', x: 14200, w: 40, h: 40 },
+            { type: 'spike', x: 14240, w: 40, h: 40 },
+            { type: 'spike', x: 14280, w: 40, h: 40 },
+            { type: 'spike', x: 14320, w: 40, h: 40 },
+            { type: 'spike', x: 14360, w: 40, h: 40 },
+            { type: 'spike', x: 14400, w: 40, h: 40 },
+            { type: 'spike', x: 14440, w: 40, h: 40 },
+            { type: 'spike', x: 14480, w: 40, h: 40 },
+            { type: 'spike', x: 14520, w: 40, h: 40 },
+            { type: 'spike', x: 14560, w: 40, h: 40 },
+            { type: 'spike', x: 14600, w: 40, h: 40 },
+            { type: 'spike', x: 14640, w: 40, h: 40 },
+            { type: 'spike', x: 14680, w: 40, h: 40 },
+            { type: 'spike', x: 14720, w: 40, h: 40 },
+            { type: 'spike', x: 14760, w: 40, h: 40 },
+            { type: 'spike', x: 14800, w: 40, h: 40 },
+            { type: 'spike', x: 14840, w: 40, h: 40 },
+            { type: 'spike', x: 14880, w: 40, h: 40 },
+            { type: 'spike', x: 14920, w: 40, h: 40 },
+            { type: 'spike', x: 14960, w: 40, h: 40 },
+            { type: 'spike', x: 15000, w: 40, h: 40 },
+            { type: 'spike', x: 15040, w: 40, h: 40 },
+            { type: 'spike', x: 15080, w: 40, h: 40 },
+            { type: 'block', x: 15120, w: 200, h: 80, yOff: 0 },
+            { type: 'pink-orb', x: 15120, w: 40, h: 40, yOff: 60 },
+            { type: 'spike', x: 15160, w: 40, h: 40, yOff: 80 },
+            { type: 'spike', x: 15200, w: 40, h: 40, yOff: 80 },
+            { type: 'spike', x: 15240, w: 40, h: 40, yOff: 80 },
+            { type: 'pad', x: 15280, w: 40, h: 10, yOff: 80 },
+            { type: 'finish', x: 16000, w: 60 }
+        ];
+
+        const finishLineX = levelBase.find(o => o.type === 'finish').x;
+        let level = [];
+
+        function sendScoreToParent() {
+            if (scoreSent) return;
+            scoreSent = true;
+            const rawPercent = (totalDistanceTraveled / (finishLineX - player.x)) * 100;
+            const finalPercent = Math.min(100, Math.max(0, Math.floor(rawPercent)));
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'updateScore', stage: 'stage05', percentage: finalPercent }, '*');
+            }
+        }
+
+        function exitToLevels() {
+            bgMusic.pause();
+            isPaused = false;
+            pauseOverlay.style.display = 'none';
+            winOverlay.style.display = 'none';
+            if (window.parent !== window) {
+                window.parent.postMessage('startMenuBgm', '*');
+                window.parent.postMessage('navigate-back', '*');
+            } else {
+                window.location.href = 'levels.html';
+            }
+        }
+
+        function togglePause() {
+            if (!hasStartedOnce || isGameOver || isGameWon) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                bgMusic.pause();
+                pauseOverlay.style.display = 'flex';
+            } else {
+                bgMusic.play().catch(() => {});
+                pauseOverlay.style.display = 'none';
+            }
+        }
+
+        function resetFromPause() {
+            isPaused = false;
+            pauseOverlay.style.display = 'none';
+            resetLevelOnly();
+        }
+
+        function startCountdown() {
+            isCountingDown = true;
+            firstTimeStart = false;
+            countdownValue = "3";
+            initLevelData();
+            bgMusic.currentTime = START_TIME;
+
+            setTimeout(() => { if(isCountingDown) countdownValue = "2"; }, 1000);
+            setTimeout(() => { if(isCountingDown) countdownValue = "1"; }, 2000);
+            setTimeout(() => {
+                if(isCountingDown) {
+                    countdownValue = "GO!";
+                    hasStartedOnce = true;
+                    isCountingDown = false;
+                    bgMusic.volume = bgmVolume * 0.5;
+                    bgMusic.play().catch(() => {});
+                    setTimeout(() => { countdownValue = ""; }, 1000);
+                }
+            }, 3000);
+        }
+
+        function initLevelData() {
+            groundY = canvas.height - 120;
+            totalDistanceTraveled = START_X_OFFSET;
+            flashOpacity = 0;
+            scoreSent = false;
+            winOverlay.style.display = 'none';
+
+            if (autoRestartTimer) {
+                clearTimeout(autoRestartTimer);
+                autoRestartTimer = null;
+            }
+
+            level = levelBase.map(obj => ({
+                ...obj,
+                w: obj.w || BLOCK_SIZE,
+                h: obj.h || BLOCK_SIZE,
+                y: (groundY / ZOOM_LEVEL) - (obj.yOff || 0),
+                x: obj.x - START_X_OFFSET,
+                used: false
+            }));
+
+            player.y = (groundY / ZOOM_LEVEL) - player.height;
+            player.dy = 0;
+            player.rotation = 0;
+            isGameOver = false;
+            isGameWon = false;
+        }
+
+        function resetLevelOnly() {
+            initLevelData();
+            hasStartedOnce = true;
+            bgMusic.currentTime = START_TIME;
+            bgMusic.volume = bgmVolume * 0.5;
+            bgMusic.play().catch(() => {});
+        }
+
+        function update() {
+            if (isPaused || !hasStartedOnce || isGameOver || isGameWon) {
+                if (isGameWon) {
+                    bgMusic.pause();
+                    winOverlay.style.display = 'flex';
+                    sendScoreToParent();
+                }
+                if (isGameOver && hasStartedOnce) {
+                    bgMusic.pause();
+                    bgMusic.currentTime = START_TIME;
+                    if (autoRestartEnabled && !autoRestartTimer) {
+                        autoRestartTimer = setTimeout(() => {
+                            resetLevelOnly();
+                            autoRestartTimer = null;
+                        }, 1000);
+                    }
+                }
+                return;
+            }
+
+            if (isInputActive && player.isGrounded) {
+                player.dy = jumpForce;
+                player.isGrounded = false;
+                canUseOrb = false;
+            }
+
+            player.dy += gravity;
+            if (player.dy > 12) player.dy = 12;
+            player.y += player.dy;
+
+            if (!player.isGrounded) player.rotation += 5;
+            else player.rotation = Math.round(player.rotation / 90) * 90;
+
+            let currentGround = groundY / ZOOM_LEVEL;
+            if (player.y + player.height >= currentGround) {
+                player.y = currentGround - player.height;
+                player.dy = 0;
+                player.isGrounded = true;
+            } else {
+                player.isGrounded = false;
+            }
+
+            totalDistanceTraveled += gameSpeed;
+
+            if (flashOpacity > 0) {
+                flashOpacity -= 1 / (60 * 0.75);
+                if (flashOpacity < 0) flashOpacity = 0;
+            }
+
+            level.forEach(obs => {
+                obs.x -= gameSpeed;
+                const pL = player.x + 6, pR = player.x + player.width - 6;
+                const pT = player.y + 2, pB = player.y + player.height - 2;
+                const oL = obs.x, oR = obs.x + obs.w;
+                let oT = obs.y - (obs.h || BLOCK_SIZE), oB = obs.y;
+
+                if (pR > oL && pL < oR) {
+                    if (obs.type === 'pad' && pB > oT && pT < oB) {
+                        player.dy = -13;
+                        player.isGrounded = false;
+                    } else if ((obs.type === 'orb' || obs.type === 'pink-orb') && pB > oT && pT < oB) {
+                        const expansion = (obs.w * 0.7) / 2;
+                        if (pR > (oL - expansion) && pL < (oR + expansion)) {
+                            if (isInputActive && !obs.used && !player.isGrounded && canUseOrb) {
+                                player.dy = (obs.type === 'pink-orb') ? jumpForce * 0.75 : jumpForce;
+                                player.isGrounded = false;
+                                obs.used = true;
+                                canUseOrb = false;
+                                if (obs.type === 'pink-orb' && Math.round(obs.x + totalDistanceTraveled - player.x) === 15120) {
+                                    flashOpacity = 1.0;
+                                }
+                            }
+                        }
+                    } else if (obs.type === 'spike') {
+                        if (pB > oT + 8 && pT < oB - 8) {
+                            isGameOver = true;
+                            bgMusic.pause();
+                            bgMusic.currentTime = START_TIME;
+                            deathSfx.volume = sfxVolume;
+                            deathSfx.currentTime = 0;
+                            deathSfx.play().catch(() => {});
+                        }
+                    } else if (obs.type === 'block') {
+                        if (player.dy >= 0 && (player.y + player.height) <= oT + 15 && (player.y + player.height) >= oT - 10) {
+                            player.y = oT - player.height;
+                            player.dy = 0;
+                            player.isGrounded = true;
+                        } else if (pB > oT + 10 && pT < oB) {
+                            isGameOver = true;
+                            bgMusic.pause();
+                            bgMusic.currentTime = START_TIME;
+                            deathSfx.volume = sfxVolume;
+                            deathSfx.currentTime = 0;
+                            deathSfx.play().catch(() => {});
+                        }
+                    }
+                }
+
+                if (obs.type === 'finish' && player.x > obs.x) {
+                    if (!isGameWon) {
+                        isGameWon = true;
+                        stageCompleteSfx.volume = sfxVolume;
+                        stageCompleteSfx.currentTime = 0;
+                        stageCompleteSfx.play().catch(() => {});
+                        sendScoreToParent();
+                    }
+                }
+            });
+
+            const rawPercent = (totalDistanceTraveled / (finishLineX - player.x)) * 100;
+            const displayPercent = Math.min(100, Math.max(0, Math.floor(rawPercent)));
+
+            if (showPercentageEnabled) {
+                percentageDisplay.style.display = 'block';
+                percentageDisplay.innerText = displayPercent + "%";
+            } else {
+                percentageDisplay.style.display = 'none';
+            }
+        }
+
+        function draw() {
+            let bgGrad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width * 0.8);
+
+            if (totalDistanceTraveled >= 13200) {
+                bgGrad.addColorStop(0, "#0055ff");
+                bgGrad.addColorStop(1, "#001a4d");
+            } else if (totalDistanceTraveled >= 11700) {
+                bgGrad.addColorStop(0, "#7300cc");
+                bgGrad.addColorStop(1, "#210040");
+            } else if (totalDistanceTraveled >= 9300) {
+                bgGrad.addColorStop(0, "#0055ff");
+                bgGrad.addColorStop(1, "#001a4d");
+            } else if (totalDistanceTraveled >= 8100) {
+                bgGrad.addColorStop(0, "#7300cc");
+                bgGrad.addColorStop(1, "#210040");
+            } else if (totalDistanceTraveled >= 7200) {
+                let fadeRatio = Math.min(1, (totalDistanceTraveled - 7200) / 900);
+                let colorVal = Math.floor(0 * (1 - fadeRatio));
+                bgGrad.addColorStop(0, `rgb(${colorVal},${colorVal},${colorVal})`);
+                bgGrad.addColorStop(1, "#000000");
+            } else if (totalDistanceTraveled >= 5400) {
+                bgGrad.addColorStop(0, "#e63e00");
+                bgGrad.addColorStop(1, "#4d1500");
+            } else if (totalDistanceTraveled >= 3900) {
+                bgGrad.addColorStop(0, "#bc0000");
+                bgGrad.addColorStop(1, "#330000");
+            } else if (totalDistanceTraveled >= 1500) {
+                bgGrad.addColorStop(0, "#e63e00");
+                bgGrad.addColorStop(1, "#4d1500");
+            } else {
+                bgGrad.addColorStop(0, "#bc0000");
+                bgGrad.addColorStop(1, "#330000");
+            }
+
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (flashOpacity > 0) {
+                ctx.fillStyle = `rgba(0, 0, 0, ${1 - flashOpacity})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = `rgba(255, 255, 255, ${flashOpacity})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.save();
+            ctx.scale(ZOOM_LEVEL, ZOOM_LEVEL);
+
+            if (!firstTimeStart) {
+                level.forEach(obs => {
+                    ctx.save();
+                    let objColor = (flashOpacity > 0.5) ? "#ffffff" : "#000000";
+                    let strokeColor = "#ffffff";
+
+                    if (obs.type === 'spike') {
+                        ctx.shadowBlur = 8;
+                        ctx.shadowColor = strokeColor;
+                        ctx.fillStyle = objColor;
+                        ctx.strokeStyle = strokeColor;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        if (obs.upsideDown) {
+                            ctx.moveTo(obs.x, obs.y - obs.h);
+                            ctx.lineTo(obs.x + obs.w / 2, obs.y);
+                            ctx.lineTo(obs.x + obs.w, obs.y - obs.h);
+                        } else {
+                            ctx.moveTo(obs.x, obs.y);
+                            ctx.lineTo(obs.x + obs.w / 2, obs.y - obs.h);
+                            ctx.lineTo(obs.x + obs.w, obs.y);
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                    } else if (obs.type === 'block') {
+                        ctx.shadowBlur = 8;
+                        ctx.shadowColor = strokeColor;
+                        ctx.fillStyle = objColor;
+                        ctx.strokeStyle = strokeColor;
+                        ctx.lineWidth = 2;
+                        ctx.fillRect(obs.x, obs.y - obs.h, obs.w, obs.h);
+                        ctx.strokeRect(obs.x, obs.y - obs.h, obs.w, obs.h);
+                    } else if (obs.type === 'pad') {
+                        ctx.fillStyle = "#ffcc00";
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = "#ffcc00";
+                        ctx.fillRect(obs.x, obs.y - 10, obs.w, 10);
+                    } else if (obs.type === 'orb') {
+                        ctx.fillStyle = "#ffff00";
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = "#ffff00";
+                        ctx.beginPath();
+                        ctx.arc(obs.x + obs.w / 2, obs.y - obs.h / 2, obs.w / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (obs.type === 'pink-orb') {
+                        ctx.fillStyle = "#ff00ff";
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = "#ff00ff";
+                        ctx.beginPath();
+                        ctx.arc(obs.x + obs.w / 2, obs.y - obs.h / 2, obs.w / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (obs.type === 'finish') {
+                        ctx.shadowBlur = 25;
+                        ctx.shadowColor = "#00ff88";
+                        ctx.fillStyle = "#00ff88";
+                        ctx.fillRect(obs.x, 0, 10, groundY / ZOOM_LEVEL);
+                    }
+                    ctx.restore();
+                });
+
+                ctx.fillStyle = (flashOpacity > 0.5) ? "#ffffff" : "#0a0000";
+                ctx.fillRect(0, groundY / ZOOM_LEVEL, canvas.width, canvas.height);
+
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-5, groundY / ZOOM_LEVEL, canvas.width + 10, 1);
+
+                if (!isGameWon && !(isGameOver && !displayDeathEnabled)) {
+                    ctx.save();
+                    ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+                    ctx.rotate(player.rotation * Math.PI / 180);
+                    ctx.fillStyle = playerCharColor;
+                    ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+
+                    if (playerImgObj.complete && playerImgObj.naturalWidth > 0) {
+                        ctx.drawImage(playerImgObj, -player.width/2, -player.height/2, player.width, player.height);
+                    } else {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+                        ctx.fillStyle = "#00d2ff";
+                        ctx.fillRect(-player.width / 2 + 4, -player.height / 2 + 4, player.width - 8, player.height - 8);
+                    }
+                    ctx.restore();
+                }
+            }
+
+            ctx.restore();
+
+            if (firstTimeStart && !isCountingDown) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#fff";
+                ctx.font = '20px "Press Start 2P"';
+                ctx.textAlign = "center";
+                ctx.fillText("CLICK ANYWHERE TO START", canvas.width / 2, canvas.height / 2);
+            }
+
+            if (isCountingDown || countdownValue === "GO!") {
+                ctx.fillStyle = "#fff";
+                ctx.font = '60px "Press Start 2P"';
+                ctx.textAlign = "center";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#000";
+                ctx.fillText(countdownValue, canvas.width / 2, canvas.height / 2);
+                ctx.shadowBlur = 0;
+            }
+
+            if (isGameOver && !isPaused) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (!autoRestartEnabled) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = '20px "Press Start 2P"';
+                    ctx.textAlign = "center";
+                    ctx.fillText("TRY AGAIN", canvas.width / 2, canvas.height / 2);
+                }
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener("mousedown", () => {
+            if (isPaused || isGameWon) return;
+            if (isGameOver) {
+                if (!autoRestartEnabled) resetLevelOnly();
+            } else if (firstTimeStart && !isCountingDown) {
+                startCountdown();
+            } else if (hasStartedOnce) {
+                isInputActive = true;
+                if (!player.isGrounded) canUseOrb = true;
+            }
+        });
+
+        window.addEventListener("mouseup", () => {
+            isInputActive = false;
+            canUseOrb = false;
+        });
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") togglePause();
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            groundY = canvas.height - 120;
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'requestSettings' }, '*');
+            window.parent.postMessage({ type: 'requestCharData' }, '*');
+        }
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'settingsData') {
+                autoRestartEnabled = event.data.settings.autoRestart;
+                showPercentageEnabled = event.data.settings.showPercentage;
+                displayDeathEnabled = event.data.settings.displayDeath;
+                bgmVolume = event.data.settings.bgm;
+                sfxVolume = event.data.settings.sfx;
+                bgMusic.volume = bgmVolume * 0.5;
+                deathSfx.volume = sfxVolume;
+                stageCompleteSfx.volume = sfxVolume;
+                if (!showPercentageEnabled) {
+                    percentageDisplay.style.display = 'none';
+                }
+            }
+            if (event.data && event.data.type === 'charData') {
+                playerCharImg = event.data.char.img;
+                playerCharColor = event.data.char.color;
+                playerImgObj.src = playerCharImg;
+            }
+        });
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        groundY = canvas.height - 120;
+
+        loop();
+    </script>
+</body>
+</html>

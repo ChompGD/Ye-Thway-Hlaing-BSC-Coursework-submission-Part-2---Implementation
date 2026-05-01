@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Square Jump - Select Stage</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <style>
+        :root {
+            --bg-color: #0a0a1f;
+            --accent-play: #f8ff00;
+            --accent-char: #00d2ff;
+            --accent-endless: #ff00ff;
+            --text-main: #ffffff;
+            --card-bg: rgba(0, 0, 0, 0.7);
+            --victory: #00ff88;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--bg-color);
+            background-image: linear-gradient(rgba(18,16,16,0.2) 50%, rgba(0,0,0,0.1) 50%),
+                              linear-gradient(90deg, rgba(0,210,255,0.05) 1px, transparent 1px),
+                              linear-gradient(rgba(255,0,255,0.05) 1px, transparent 1px);
+            background-size: 100% 4px, 60px 100%, 100% 60px;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.2) 50%),
+                        linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.01), rgba(0,0,255,0.03));
+            z-index: 10;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+        
+        .header-container {
+            text-align: center;
+            margin: 60px 0;
+            z-index: 2;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 4px 4px 0px var(--accent-endless), -4px -4px 0px var(--accent-char);
+            letter-spacing: 4px;
+            animation: titlePulse 2s infinite ease-in-out;
+        }
+        
+        @keyframes titlePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .back-arrow-box {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            width: 60px;
+            height: 60px;
+            background: rgba(0,0,0,0.8);
+            border: 4px solid var(--accent-play);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px var(--accent-play);
+            z-index: 100;
+        }
+        
+        .back-arrow-box:hover {
+            transform: scale(1.1);
+            background: var(--accent-play);
+            box-shadow: 0 0 30px var(--accent-play);
+        }
+        
+        .back-arrow-box i {
+            font-size: 1.5rem;
+            color: var(--accent-play);
+        }
+        
+        .back-arrow-box:hover i {
+            color: #000;
+        }
+        
+        .stages-container {
+            width: 90%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            padding-bottom: 80px;
+            z-index: 2;
+        }
+        
+        .stage-card {
+            background: var(--card-bg);
+            border: 4px solid var(--accent-char);
+            padding: 25px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .stage-card.completed {
+            border-color: var(--victory);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+        
+        .stage-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,210,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        
+        .stage-card:hover {
+            transform: scale(1.02);
+            border-color: var(--accent-play);
+            box-shadow: 0 0 30px rgba(248,255,0,0.3);
+        }
+        
+        .stage-card:hover::before {
+            left: 100%;
+        }
+        
+        .stage-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .stage-number {
+            font-size: 0.7rem;
+            color: var(--accent-char);
+            opacity: 0.8;
+        }
+        
+        .stage-name {
+            font-size: 1.8rem;
+            color: #fff;
+            text-shadow: 2px 2px 0px #000;
+        }
+        
+        .difficulty-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 5px;
+        }
+        
+        .stars {
+            color: var(--accent-play);
+            font-size: 0.9rem;
+            letter-spacing: 4px;
+        }
+        
+        .diff-label {
+            font-size: 0.6rem;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        
+        .diff-easy   { color: #00ffff; }
+        .diff-medium { color: #00ff88; }
+        .diff-hard   { color: #f8ff00; }
+        .diff-harder { color: #ff4444; }
+        .diff-insane { color: #cc00ff; }
+        
+        .play-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        
+        .btn-play {
+            background: var(--accent-play);
+            border: none;
+            padding: 15px 35px;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+            transition: all 0.2s;
+            color: #000;
+        }
+        
+        .btn-play:hover {
+            transform: skewX(-5deg) scale(1.1);
+            filter: brightness(1.2);
+            box-shadow: 0 0 20px var(--accent-play);
+        }
+        
+        .info-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 22px;
+            height: 22px;
+            background: rgba(0,210,255,0.2);
+            border: 2px solid var(--accent-char);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--accent-char);
+            font-size: 0.55rem;
+            font-weight: bold;
+            font-family: 'Press Start 2P', cursive;
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+        
+        .info-btn:hover {
+            background: var(--accent-char);
+            color: #000;
+            box-shadow: 0 0 15px var(--accent-char);
+        }
+        
+        .info-popup {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .info-popup-content {
+            background: rgba(10,10,30,0.95);
+            border: 4px solid var(--accent-char);
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 30px var(--accent-char);
+        }
+        
+        .info-popup-content h3 {
+            font-size: 0.8rem;
+            color: var(--accent-play);
+            margin: 0 0 20px 0;
+            text-align: center;
+        }
+        
+        .info-popup-content p {
+            font-size: 0.55rem;
+            line-height: 1.8;
+            color: #ccc;
+            text-align: center;
+        }
+        
+        .info-close-btn {
+            background: var(--accent-endless);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            cursor: pointer;
+            margin-top: 25px;
+            width: 100%;
+            text-transform: uppercase;
+        }
+        
+        .info-close-btn:hover {
+            filter: brightness(1.2);
+            box-shadow: 0 0 20px var(--accent-endless);
+        }
+        
+        .no-score-marker {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-arrow-box" onclick="goBack()">
+        <i class="fas fa-arrow-left"></i>
+    </div>
+
+    <div class="header-container">
+        <h1>SELECT STAGE</h1>
+    </div>
+
+    <div class="stages-container">
+        <div class="stage-card" id="card-stage01" onclick="loadStage('stereo_beginnings.html', 'stage01')">
+            <div class="info-btn" onclick="event.stopPropagation(); openInfo('stage01')">i</div>
+            <div class="stage-info">
+                <span class="stage-number">STAGE 01</span>
+                <span class="stage-name">STEREO BEGINNINGS</span>
+                <div class="difficulty-row">
+                    <div class="stars"><i class="fas fa-star"></i></div>
+                    <span class="diff-label diff-easy">Easy</span>
+                </div>
+            </div>
+            <div class="play-section">
+                <button class="btn-play">GO!</button>
+            </div>
+        </div>
+
+        <div class="stage-card" id="card-stage02" onclick="loadStage('jumper.html', 'stage02')">
+            <div class="info-btn" onclick="event.stopPropagation(); openInfo('stage02')">i</div>
+            <div class="stage-info">
+                <span class="stage-number">STAGE 02</span>
+                <span class="stage-name">JUMPER</span>
+                <div class="difficulty-row">
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <span class="diff-label diff-medium">Medium</span>
+                </div>
+            </div>
+            <div class="play-section">
+                <button class="btn-play">GO!</button>
+            </div>
+        </div>
+
+        <div class="stage-card" id="card-stage03" onclick="loadStage('poltergiest.html', 'stage03')">
+            <div class="info-btn" onclick="event.stopPropagation(); openInfo('stage03')">i</div>
+            <div class="stage-info">
+                <span class="stage-number">STAGE 03</span>
+                <span class="stage-name">POLTERGEIST</span>
+                <div class="difficulty-row">
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <span class="diff-label diff-hard">Hard</span>
+                </div>
+            </div>
+            <div class="play-section">
+                <button class="btn-play">GO!</button>
+            </div>
+        </div>
+
+        <div class="stage-card" id="card-stage04" onclick="loadStage('electromix.html', 'stage04')">
+            <div class="info-btn" onclick="event.stopPropagation(); openInfo('stage04')">i</div>
+            <div class="stage-info">
+                <span class="stage-number">STAGE 04</span>
+                <span class="stage-name">ELECTROMIX</span>
+                <div class="difficulty-row">
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <span class="diff-label diff-harder">Harder</span>
+                </div>
+            </div>
+            <div class="play-section">
+                <button class="btn-play">GO!</button>
+            </div>
+        </div>
+
+        <div class="stage-card" id="card-stage05" onclick="loadStage('clusterfunk.html', 'stage05')">
+            <div class="info-btn" onclick="event.stopPropagation(); openInfo('stage05')">i</div>
+            <div class="stage-info">
+                <span class="stage-number">STAGE 05</span>
+                <span class="stage-name">CLUSTERFUNK</span>
+                <div class="difficulty-row">
+                    <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                    <span class="diff-label diff-insane">Insane</span>
+                </div>
+            </div>
+            <div class="play-section">
+                <button class="btn-play">GO!</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="info-popup" class="info-popup">
+        <div class="info-popup-content">
+            <h3 id="info-title"></h3>
+            <p id="info-description"></p>
+            <button class="info-close-btn" onclick="closeInfo()">CLOSE</button>
+        </div>
+    </div>
+
+    <script>
+        let bestScores = {
+            stage01: 0,
+            stage02: 0,
+            stage03: 0,
+            stage04: 0,
+            stage05: 0
+        };
+        function updateCompletionVisuals() {
+            if (bestScores.stage01 >= 100) document.getElementById('card-stage01').classList.add('completed');
+            else document.getElementById('card-stage01')?.classList.remove('completed');
+            
+            if (bestScores.stage02 >= 100) document.getElementById('card-stage02').classList.add('completed');
+            else document.getElementById('card-stage02')?.classList.remove('completed');
+            
+            if (bestScores.stage03 >= 100) document.getElementById('card-stage03').classList.add('completed');
+            else document.getElementById('card-stage03')?.classList.remove('completed');
+            
+            if (bestScores.stage04 >= 100) document.getElementById('card-stage04').classList.add('completed');
+            else document.getElementById('card-stage04')?.classList.remove('completed');
+            
+            if (bestScores.stage05 >= 100) document.getElementById('card-stage05').classList.add('completed');
+            else document.getElementById('card-stage05')?.classList.remove('completed');
+        }
+        
+        window.addEventListener('load', () => {
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'requestScores' }, '*');
+            } else {
+                try {
+                    const saved = localStorage.getItem('squareJumpStageBest_local');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.stage01 !== undefined) bestScores = parsed;
+                        updateCompletionVisuals();
+                    }
+                } catch(e) {}
+            }
+        });
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'scoresData') {
+                if (event.data.scores) {
+                    bestScores = event.data.scores;
+                    updateCompletionVisuals();
+                    if (window.parent === window) {
+                        try {
+                            localStorage.setItem('squareJumpStageBest_local', JSON.stringify(bestScores));
+                        } catch(e) {}
+                    }
+                }
+            }
+            
+            if (event.data && event.data.type === 'updateScoreDisplay') {
+                if (event.data.scores) {
+                    bestScores = event.data.scores;
+                    updateCompletionVisuals();
+                    if (window.parent === window) {
+                        try {
+                            localStorage.setItem('squareJumpStageBest_local', JSON.stringify(bestScores));
+                        } catch(e) {}
+                    }
+                }
+            }
+        });
+        
+        const stageInfo = {
+            stage01: {
+                title: "STAGE 01 - STEREO BEGINNINGS",
+                description: "This is the first stage of Square Jump! Since this is the first stage, it will teach the player about the basic jumping mechanics and physics of the game, and how to overcome the different obstacles along the way!"
+            },
+            stage02: {
+                title: "STAGE 02 - JUMPER",
+                description: "In this stage you will learn about the jump pads. When the player touches the jump pad, it will launch the player into the air when touched. Becareful, do not always step on the jump pad"
+            },
+            stage03: {
+                title: "STAGE 03 - POLTERGEIST",
+                description: "The stages are starting to get challenging for sure. In this stage, the player will learn about the yellow orb. Basically the player can click on the yellow orb as long as the player icon is within the orb hitbox. When clicked, the player will do a mid air jump!"
+            },
+            stage04: {
+                title: "STAGE 04 - ELECTROMIX",
+                description: "Now things are getting real serious. This stage will introduce the pink orb, which has the same function as the previous yellow orb, but it has a smaller jump."
+            },
+            stage05: {
+                title: "STAGE 05 - CLUSTERFUNK",
+                description: "Welcome to the final stage. This stage will test everything about what the player have learnt form the previous stages. While there will be nothing new in this stage, this stage is designed to be super challenging that requires a lot of time to overcome it. Good luck!"
+            }
+        };
+        
+        function openInfo(stageId) {
+            const info = stageInfo[stageId];
+            if (!info) return;
+            document.getElementById('info-title').innerText = info.title;
+            document.getElementById('info-description').innerText = info.description;
+            document.getElementById('info-popup').style.display = 'flex';
+        }
+        
+        function closeInfo() {
+            document.getElementById('info-popup').style.display = 'none';
+        }
+        
+        document.getElementById('info-popup').onclick = function(e) {
+            if (e.target === this) closeInfo();
+        };
+        
+        function loadStage(url, stageId) {
+            if (url === '#') {
+                alert('Coming soon!');
+                return;
+            }
+            if (window.parent !== window) {
+                window.parent.postMessage('stopMenuBgm', '*');
+            }
+            window.location.href = url;
+        }
+        
+        function goBack() {
+            if (window.parent !== window) {
+                window.parent.postMessage('navigate-back', '*');
+            } else {
+                window.location.href = 'menu.html';
+            }
+        }
+        
+        window.addEventListener('load', function() {
+            if (window.parent === window) {
+                const localScores = localStorage.getItem('squareJumpStageBest_local');
+                if (localScores) {
+                    try {
+                        const parsed = JSON.parse(localScores);
+                        if (parsed.stage01 !== undefined) bestScores = parsed;
+                        updateCompletionVisuals();
+                    } catch(e) {}
+                }
+            }
+        });
+        
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'squareJumpStageBest_local' && window.parent === window) {
+                try {
+                    const newScores = JSON.parse(e.newValue);
+                    if (newScores) {
+                        bestScores = newScores;
+                        updateCompletionVisuals();
+                    }
+                } catch (err) {}
+            }
+        });
+
+        window.updateStageScoresOnlyVisual = function(scores) {
+            if (scores) {
+                bestScores = scores;
+                updateCompletionVisuals();
+                if (window.parent === window) {
+                    localStorage.setItem('squareJumpStageBest_local', JSON.stringify(bestScores));
+                }
+            }
+        };
+        
+        console.log("Square Jump Stage Select — Score text permanently erased. Only completion border (victory glow) remains functional.");
+    </script>
+</body>
+</html>

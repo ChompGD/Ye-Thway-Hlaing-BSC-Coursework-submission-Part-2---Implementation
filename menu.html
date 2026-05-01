@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Square Jump - Arcade Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0a0a1f;
+            --accent-play: #f8ff00;
+            --accent-char: #00d2ff;
+            --accent-endless: #ff00ff;
+            --text-main: #ffffff;
+            --youtube:   #FF0000;
+            --discord:   #5865F2;
+            --facebook:  #1877F2;
+            --instagram: #E1306C;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--bg-color);
+            background-image:
+                linear-gradient(rgba(18, 16, 16, 0.2) 50%, rgba(0, 0, 0, 0.1) 50%),
+                linear-gradient(90deg, rgba(0,210,255,0.08) 1px, transparent 1px),
+                linear-gradient(rgba(255,0,255,0.08) 1px, transparent 1px);
+            background-size: 100% 4px, 40px 100%, 100% 40px;
+            color: var(--text-main);
+            overflow: hidden;
+            position: relative;
+        }
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 10;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .gate-screen { position: fixed; inset: 0; background: #050511; z-index: 20000; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .loader-content p { font-size: 0.8rem; color: var(--accent-char); margin-bottom: 20px; }
+        .load-bar { width: 300px; height: 10px; border: 2px solid var(--accent-char); padding: 2px; }
+        .load-progress { width: 0%; height: 100%; background: var(--accent-char); box-shadow: 0 0 15px var(--accent-char); animation: fillBar 2s linear forwards; }
+        @keyframes fillBar { to { width: 100%; } }
+        .static-start-text { font-size: 1.2rem; color: var(--accent-play); text-shadow: 0 0 10px var(--accent-play); cursor: pointer; letter-spacing: 2px; }
+
+        .auth-container { position: absolute; top: 25px; right: 25px; display: flex; gap: 15px; z-index: 100; }
+        .auth-btn { padding: 12px 18px; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; cursor: pointer; transition: all 0.3s ease; border-radius: 4px; text-transform: uppercase; }
+        .login-btn { background: rgba(0, 210, 255, 0.1); border: 2px solid var(--accent-char); color: var(--accent-char); box-shadow: 0 0 10px rgba(0, 210, 255, 0.2); }
+        .login-btn:hover { background: var(--accent-char); color: #000; box-shadow: 0 0 25px var(--accent-char); }
+        .signup-btn { background: rgba(248, 255, 0, 0.1); border: 2px solid var(--accent-play); color: var(--accent-play); box-shadow: 0 0 10px rgba(248, 255, 0, 0.2); }
+        .signup-btn:hover { background: var(--accent-play); color: #000; box-shadow: 0 0 25px var(--accent-play); }
+
+        .auth-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+        .auth-content { padding: 30px; width: 90%; max-width: 400px; border: 4px solid; background: #050511; position: relative; }
+        .login-theme { border-color: var(--accent-char); box-shadow: 0 0 30px var(--accent-char); color: var(--accent-char); }
+        .signup-theme { border-color: var(--accent-play); box-shadow: 0 0 30px var(--accent-play); color: var(--accent-play); }
+        .auth-input-group { margin-bottom: 20px; position: relative; }
+        .auth-input-group label { display: block; font-size: 0.6rem; margin-bottom: 10px; text-transform: uppercase; }
+        .auth-input-group input { width: 100%; background: rgba(255,255,255,0.05); border: 2px solid; padding: 12px 35px 12px 12px; color: #fff; font-family: 'Press Start 2P'; font-size: 0.7rem; box-sizing: border-box; outline: none; }
+        .login-theme input { border-color: rgba(0, 210, 255, 0.3); }
+        .signup-theme input { border-color: rgba(248, 255, 0, 0.3); }
+        .pass-toggle { position: absolute; right: 12px; bottom: 12px; cursor: pointer; font-size: 1rem; opacity: 0.7; z-index: 5; }
+        .pass-toggle:hover { opacity: 1; }
+        .submit-auth { width: 100%; padding: 15px; font-family: inherit; font-size: 0.8rem; cursor: pointer; border: none; margin-top: 10px; text-transform: uppercase; }
+        .login-theme .submit-auth { background: var(--accent-char); color: #000; }
+        .signup-theme .submit-auth { background: var(--accent-play); color: #000; }
+        .cancel-btn { background: transparent; color: #fff; font-size: 0.5rem; margin-top: 10px; border: none; font-family: inherit; cursor: pointer; width: 100%; padding: 10px; text-transform: uppercase; }
+        .cancel-btn:hover { color: #888; }
+
+        #settings-modal, #custom-modal, #about-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: rgba(10, 10, 30, 0.95); border: 4px solid var(--accent-char); padding: 40px; max-width: 600px; width: 90%; box-shadow: 0 0 30px var(--accent-char); max-height: 80vh; overflow-y: auto; }
+        .modal-header { text-align: center; margin-bottom: 30px; color: var(--accent-play); font-size: 0.9rem; }
+        .close-btn { background: var(--accent-endless); color: black; border: none; padding: 12px 30px; font-family: inherit; font-size: 0.8rem; cursor: pointer; margin-top: 30px; width: 100%; text-transform: uppercase; }
+        .close-btn:hover { filter: brightness(1.2); box-shadow: 0 0 20px var(--accent-endless); }
+        
+        .about-text { font-size: 0.6rem; line-height: 2; color: #ccc; text-align: center; margin-bottom: 20px; }
+
+        #notification-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center; }
+        .notification-content { background: rgba(10, 10, 30, 0.95); border: 4px solid var(--accent-play); padding: 30px; max-width: 450px; width: 90%; box-shadow: 0 0 30px var(--accent-play); text-align: center; }
+        .notification-content p { font-size: 0.55rem; color: #fff; line-height: 1.8; margin-bottom: 25px; }
+        .notification-ok-btn { background: var(--accent-play); color: #000; border: none; padding: 12px 30px; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; cursor: pointer; text-transform: uppercase; width: 100%; }
+        .notification-ok-btn:hover { filter: brightness(1.2); box-shadow: 0 0 20px var(--accent-play); }
+
+        .settings-section { margin-bottom: 25px; padding: 15px; border: 2px solid rgba(0, 210, 255, 0.3); background: rgba(0, 0, 0, 0.3); }
+        .settings-section label { display: block; font-size: 0.6rem; color: var(--accent-char); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .slider-container { display: flex; align-items: center; gap: 15px; }
+        .slider-container input[type="range"] { flex: 1; height: 8px; appearance: none; background: rgba(0, 210, 255, 0.2); border: 1px solid var(--accent-char); outline: none; }
+        .slider-container input[type="range"]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; background: var(--accent-char); cursor: pointer; border: 2px solid #fff; }
+        .slider-value { font-size: 0.6rem; color: var(--accent-play); min-width: 40px; text-align: right; }
+        .toggle-option { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; font-size: 0.55rem; color: #ccc; cursor: pointer; }
+        .toggle-option input[type="checkbox"] { appearance: none; width: 20px; height: 20px; border: 2px solid var(--accent-char); background: transparent; cursor: pointer; position: relative; flex-shrink: 0; }
+        .toggle-option input[type="checkbox"]:checked { background: var(--accent-char); }
+        .toggle-option input[type="checkbox"]:checked::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #000; font-size: 0.8rem; font-weight: bold; }
+        .toggle-option span { line-height: 1.4; }
+
+        .preview-area { display: flex; justify-content: center; margin-bottom: 30px; }
+        #char-preview { width: 100px; height: 100px; border: 4px solid #fff; display: flex; align-items: center; justify-content: center; background: #000; position: relative; overflow: hidden; }
+        #char-preview .color-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 1.0; }
+        #char-preview img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 2; }
+        .selection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; }
+        .design-opt { aspect-ratio: 1; border: 2px solid #555; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: #000; }
+        .design-opt .color-surface { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 1.0; }
+        .design-opt img { width: 100%; height: 100%; object-fit: cover; position: relative; z-index: 2; }
+        .design-opt.active { border-color: var(--accent-play); box-shadow: 0 0 10px var(--accent-play); }
+        .hue-control { margin-top: 20px; }
+        .hue-control label { display: block; font-size: 0.6rem; color: var(--accent-char); margin-bottom: 10px; text-transform: uppercase; }
+        .hue-control input[type="range"] { width: 100%; height: 14px; background: linear-gradient(to right, red, orange, yellow, lime, cyan, blue, magenta, red); appearance: none; border: 1px solid #555; }
+
+        .bg-character { position: absolute; bottom: 0; width: 34vw; max-width: 450px; height: auto; aspect-ratio: 4 / 5; background-size: cover; background-position: center bottom; background-repeat: no-repeat; filter: brightness(40%); z-index: 0; pointer-events: none; }
+        .bg-guy-right { right: 8vw; background-image: url('images/guy.png'); }
+        .bg-guy-left { left: 8vw; background-image: url('images/guy2.png'); }
+        .arcade-grid { position: absolute; bottom: 0; width: 100%; height: 40%; background-image: linear-gradient(0deg, transparent 24%, rgba(0, 210, 255, 0.15) 25%, rgba(0, 210, 255, 0.15) 26%, transparent 27%), linear-gradient(90deg, transparent 24%, rgba(0, 210, 255, 0.15) 25%, rgba(0, 210, 255, 0.15) 26%, transparent 27%); background-size: 60px 60px; transform: perspective(500px) rotateX(60deg); transform-origin: bottom; animation: gridMove 2s linear infinite; z-index: 1; }
+        @keyframes gridMove { from { background-position: 0 0; } to { background-position: 0 60px; } }
+        #particle-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        .floating-particle { position: absolute; background: rgba(255, 255, 255, 0.25); border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 0 15px rgba(255, 255, 255, 0.3); bottom: -50px; animation: floatUp linear infinite; }
+        @keyframes floatUp { 0% { transform: translateY(0) rotate(0deg); opacity: 0; } 20% { opacity: 0.6; } 80% { opacity: 0.6; } 100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; } }
+        .header { text-align: center; z-index: 3; margin-top: 50px; }
+        h1 { font-size: 3.5rem; margin: 0; color: #fff; text-shadow: 4px 4px 0px var(--accent-endless), -4px -4px 0px var(--accent-char); letter-spacing: 4px; animation: titlePulse 2s infinite ease-in-out; text-transform: uppercase; }
+        @keyframes titlePulse { 0%, 100% { text-shadow: 4px 4px 0px var(--accent-endless), -4px -4px 0px var(--accent-char); } 50% { text-shadow: 6px 6px 0px var(--accent-endless), -6px -6px 0px var(--accent-char); } }
+        .quote { font-size: 0.8rem; margin-top: 20px; color: var(--accent-play); text-transform: uppercase; }
+        .action-container { display: flex; flex-direction: column; align-items: center; gap: 50px; z-index: 3; width: 100%; margin-top: 60px; }
+        .arcade-btn { width: 210px; height: 210px; background: rgba(10, 10, 10, 0.9); border: 4px solid var(--accent-play); outline: 6px solid rgba(248, 255, 0, 0.2); display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 0 25px var(--accent-play), inset 0 0 15px var(--accent-play); color: var(--accent-play); animation: arcadePulse 2s infinite; }
+        @keyframes arcadePulse { 0%, 100% { box-shadow: 0 0 25px var(--accent-play), inset 0 0 15px var(--accent-play); } 50% { box-shadow: 0 0 50px var(--accent-play), inset 0 0 30px var(--accent-play); } }
+        .arcade-btn i { font-size: 5.2rem; filter: drop-shadow(0 0 8px var(--accent-play)); }
+        .play-label { font-size: 0.9rem; margin-top: 15px; letter-spacing: 2px; font-weight: bold; }
+        .arcade-btn:hover { transform: scale(1.08) translateY(-5px); background: var(--accent-play); color: #000; box-shadow: 0 0 60px var(--accent-play); outline: 10px solid rgba(248, 255, 0, 0.4); }
+        .customize-btn, .purple-btn { width: 280px; height: 55px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; text-align: center; }
+        .customize-btn { background: rgba(0, 210, 255, 0.15); border: 4px solid var(--accent-char); color: var(--accent-char); box-shadow: 0 0 20px rgba(0, 210, 255, 0.3); }
+        .customize-btn:hover { background: var(--accent-char); color: #000; box-shadow: 0 0 40px var(--accent-char); }
+        .purple-btn { background: rgba(255, 0, 255, 0.15); border: 4px solid var(--accent-endless); color: var(--accent-endless); box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); }
+        .purple-btn:hover { background: var(--accent-endless); color: #000; box-shadow: 0 0 40px var(--accent-endless); }
+        .footer { width: 100%; padding: 0 40px 30px; display: flex; justify-content: space-between; align-items: center; z-index: 3; box-sizing: border-box; margin-top: auto; }
+        .social-links { display: flex; gap: 25px; }
+        .social-icon, .settings-icon { font-size: 2.5rem; transition: all 0.3s ease; }
+        .youtube { color: var(--youtube); } .discord { color: var(--discord); } .facebook { color: var(--facebook); } .instagram { color: var(--instagram); }
+        .settings-icon { color: #ffffff; cursor: pointer; }
+        .settings-icon:hover { color: var(--accent-play); }
+        #iframe-container { position: fixed; inset: 0; background: rgba(5,5,17,0.96); z-index: 9999; display: none; }
+        #levels-iframe { width: 100%; height: 100%; border: none; }
+        .welcome-msg { color: var(--accent-play); font-size: 0.6rem; margin-right: 15px; align-self: center; display: none; }
+    </style>
+</head>
+<body>
+    <div id="loading-screen" class="gate-screen"><div class="loader-content"><p>LOADING...</p><div class="load-bar"><div class="load-progress"></div></div></div></div>
+    <div id="start-screen" class="gate-screen" style="display:none;" onclick="initGame()"><div class="static-start-text">TAP ANYWHERE TO START</div></div>
+    <audio id="menu-bgm" src="audio/menuloop.mp3" loop></audio>
+    <div class="auth-container">
+        <span id="user-display" class="welcome-msg"></span>
+        <div id="auth-buttons-group" style="display: flex; gap: 15px;">
+            <div class="auth-btn login-btn" onclick="openLogin()">LOG IN</div>
+            <div class="auth-btn signup-btn" onclick="openSignup()">SIGN UP</div>
+        </div>
+        <div id="logout-btn" class="auth-btn login-btn" style="display: none;" onclick="handleLogout()">LOGOUT</div>
+    </div>
+
+    <div id="login-modal" class="auth-modal"><div class="auth-content login-theme"><h2 style="text-align:center;font-size:0.9rem;margin-bottom:30px;">USER LOGIN</h2><div class="auth-input-group"><label>Username</label><input type="text" id="login-user" placeholder="PLAYER 1" maxlength="10"></div><div class="auth-input-group"><label>Password</label><input type="password" id="login-pass" class="pass-field" placeholder="******"><i class="fas fa-eye pass-toggle" onclick="togglePass(this)"></i></div><button class="submit-auth" onclick="handleLogin()">LOG IN</button><button class="cancel-btn" onclick="closeAuthModals()">[ CANCEL ]</button></div></div>
+    <div id="signup-modal" class="auth-modal"><div class="auth-content signup-theme"><h2 style="text-align:center;font-size:0.9rem;margin-bottom:30px;">NEW PLAYER</h2><div class="auth-input-group"><label>Username (Max 10)</label><input type="text" id="signup-user" placeholder="PLAYER 1" maxlength="10"></div><div class="auth-input-group"><label>Password (5-10)</label><input type="password" id="signup-pass" class="pass-field signup-pass-field" placeholder="******"><i class="fas fa-eye pass-toggle" onclick="toggleAllSignupPasswords(this)"></i></div><div class="auth-input-group"><label>Retype Password</label><input type="password" id="signup-pass-confirm" class="pass-field signup-pass-field" placeholder="******"><i class="fas fa-eye pass-toggle" onclick="toggleAllSignupPasswords(this)"></i></div><button class="submit-auth" onclick="handleSignup()">SIGN UP</button><button class="cancel-btn" onclick="closeAuthModals()">[ CANCEL ]</button></div></div>
+    <div id="notification-modal"><div class="notification-content"><p>Please log in or create a new account</p><button class="notification-ok-btn" onclick="closeNotification()">OK</button></div></div>
+
+    <div class="bg-character bg-guy-left"></div><div class="bg-character bg-guy-right"></div><div class="arcade-grid"></div><div id="particle-container"></div>
+    <div class="header"><h1>SQUARE JUMP</h1><p class="quote">Let's start the jumping adventure!</p></div>
+    <div class="action-container"><div class="arcade-btn" onclick="loadLevels()"><i class="fas fa-play"></i><span class="play-label">START</span></div><div class="customize-btn" id="open-custom">CUSTOMIZE CHARACTER</div><div class="purple-btn" id="open-about">ABOUT SQUARE JUMP</div></div>
+    <footer class="footer">
+        <div class="social-links">
+            <a href="#" class="social-icon youtube"><i class="fab fa-youtube"></i></a>
+            <a href="#" class="social-icon discord"><i class="fab fa-discord"></i></a>
+            <a href="#" class="social-icon facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" class="social-icon instagram"><i class="fab fa-instagram"></i></a>
+        </div>
+        <div><i class="fas fa-cog settings-icon" id="settings-btn"></i></div>
+    </footer>
+
+    <div id="custom-modal"><div class="modal-content"><h2 class="modal-header">CUSTOMIZE</h2><div class="preview-area"><div id="char-preview"><div class="color-overlay" id="preview-overlay"></div><img src="images/square1.png" alt="Character" id="preview-img"></div></div><div class="selection-grid" id="design-grid"><div class="design-opt active" data-img="images/square1.png"><div class="color-surface"></div><img src="images/square1.png" alt="Square 1"></div><div class="design-opt" data-img="images/square2.png"><div class="color-surface"></div><img src="images/square2.png" alt="Square 2"></div><div class="design-opt" data-img="images/square3.png"><div class="color-surface"></div><img src="images/square3.png" alt="Square 3"></div><div class="design-opt" data-img="images/square4.png"><div class="color-surface"></div><img src="images/square4.png" alt="Square 4"></div><div class="design-opt" data-img="images/square5.png"><div class="color-surface"></div><img src="images/square5.png" alt="Square 5"></div></div><div class="hue-control"><label>COLOR HUE</label><input type="range" id="hue-slider" min="0" max="360" value="180"></div><button class="close-btn" id="close-custom">SAVE & EXIT</button></div></div>
+
+    <div id="settings-modal"><div class="modal-content"><h2 class="modal-header">SETTINGS</h2><div class="settings-section"><label>Background Music Volume</label><div class="slider-container"><input type="range" id="bgm-volume" min="0" max="1" step="0.01" value="1"><span class="slider-value" id="bgm-value">100</span></div></div><div class="settings-section"><label>SFX Volume</label><div class="slider-container"><input type="range" id="sfx-volume" min="0" max="1" step="0.01" value="1"><span class="slider-value" id="sfx-value">100</span></div></div><div class="settings-section" id="settings-toggles"><label>Game Options</label><label class="toggle-option"><input type="checkbox" id="auto-restart"><span>Auto Restart</span></label><label class="toggle-option"><input type="checkbox" id="show-percentage"><span>Show Percentage</span></label><label class="toggle-option"><input type="checkbox" id="display-death"><span>Display Death</span></label></div><button class="close-btn" id="close-settings">CLOSE</button></div></div>
+
+    <div id="about-modal"><div class="modal-content"><h2 class="modal-header">ABOUT SQUARE JUMP</h2><div class="about-text">Welcome to Square Jump! In this game the player will have to jump over the various obstacles that moves along the way. All the player needs to do is to just click the mouse on the right time, nothing else to do! There will be 5 different stages the player will have to conquer, and each stage will progressively get harder and harder, and different gameplay gimmicks and mechanics will be introduced. Good luck and have fun playing Square Jump :3</div><button class="close-btn" id="close-about">CLOSE</button></div></div>
+
+    <div id="iframe-container"><iframe id="levels-iframe"></iframe></div>
+
+<script>
+const STORAGE_KEYS = { USERS: 'square_jump_users_db', ACTIVE: 'square_jump_active_session', SETTINGS: 'square_jump_game_settings' };
+const DEFAULT_CHAR = { img: 'images/square1.png', color: '#00d2ff' };
+const DEFAULT_SETTINGS = { bgm: 1, sfx: 1, autoRestart: false, showPercentage: false, displayDeath: false };
+
+let users = [];
+let currentUser = null;
+let currentChar = { ...DEFAULT_CHAR };
+let gameSettings = { ...DEFAULT_SETTINGS };
+
+function loadFromLocalStorage() {
+    try {
+        const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+        const savedActive = localStorage.getItem(STORAGE_KEYS.ACTIVE);
+        if (savedUsers) users = JSON.parse(savedUsers);
+        if (savedActive) currentUser = JSON.parse(savedActive);
+        if (currentUser) {
+            const userWithData = users.find(u => u.username === currentUser.username);
+            if (userWithData) {
+                if (userWithData.charData) currentChar = userWithData.charData; else currentChar = { ...DEFAULT_CHAR };
+                if (userWithData.settings) gameSettings = userWithData.settings; else gameSettings = { ...DEFAULT_SETTINGS };
+            } else { currentChar = { ...DEFAULT_CHAR }; gameSettings = { ...DEFAULT_SETTINGS }; }
+        } else { currentChar = { ...DEFAULT_CHAR }; gameSettings = { ...DEFAULT_SETTINGS }; }
+    } catch(e) { console.log('Load error:', e); }
+}
+
+function saveToLocalStorage() {
+    try {
+        if (currentUser) {
+            const userIndex = users.findIndex(u => u.username === currentUser.username);
+            if (userIndex !== -1) { users[userIndex].charData = { ...currentChar }; users[userIndex].settings = { ...gameSettings }; }
+        }
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+        localStorage.setItem(STORAGE_KEYS.ACTIVE, JSON.stringify(currentUser));
+    } catch(e) { console.log('Save error:', e); }
+}
+
+function saveToWindow() { window.__SQUARE_JUMP_DATA__ = { users: [...users], currentUser: currentUser ? {...currentUser} : null, currentChar: {...currentChar}, gameSettings: {...gameSettings} }; }
+
+function initGame() {
+    const bgm = document.getElementById('menu-bgm');
+    bgm.volume = gameSettings.bgm;
+    bgm.play().catch(() => {});
+    document.getElementById('start-screen').style.display = 'none';
+}
+
+window.addEventListener('load', () => {
+    loadFromLocalStorage();
+    setTimeout(() => { document.getElementById('loading-screen').style.display = 'none'; document.getElementById('start-screen').style.display = 'flex'; }, 2000);
+    updateAuthUI();
+    document.getElementById('bgm-volume').value = gameSettings.bgm;
+    document.getElementById('sfx-volume').value = gameSettings.sfx;
+    document.getElementById('bgm-value').innerText = Math.round(gameSettings.bgm * 100);
+    document.getElementById('sfx-value').innerText = Math.round(gameSettings.sfx * 100);
+    document.getElementById('auto-restart').checked = gameSettings.autoRestart;
+    document.getElementById('show-percentage').checked = gameSettings.showPercentage;
+    document.getElementById('display-death').checked = gameSettings.displayDeath;
+    document.getElementById('menu-bgm').volume = gameSettings.bgm;
+    updatePreview(); updateColorSurfaces(); updateActiveSelection();
+});
+
+const customModal = document.getElementById('custom-modal');
+const settingsModal = document.getElementById('settings-modal');
+const aboutModal = document.getElementById('about-modal');
+const loginModal = document.getElementById('login-modal');
+const signupModal = document.getElementById('signup-modal');
+const notificationModal = document.getElementById('notification-modal');
+
+function openLogin() { loginModal.style.display = 'flex'; }
+function openSignup() { signupModal.style.display = 'flex'; }
+function closeAuthModals() { loginModal.style.display = 'none'; signupModal.style.display = 'none'; document.getElementById('login-user').value = ''; document.getElementById('login-pass').value = ''; document.getElementById('signup-user').value = ''; document.getElementById('signup-pass').value = ''; document.getElementById('signup-pass-confirm').value = ''; }
+function closeNotification() { notificationModal.style.display = 'none'; }
+function togglePass(icon) { const input = icon.parentElement.querySelector('.pass-field'); if (input.type === "password") { input.type = "text"; icon.classList.replace('fa-eye', 'fa-eye-slash'); } else { input.type = "password"; icon.classList.replace('fa-eye-slash', 'fa-eye'); } }
+function toggleAllSignupPasswords(icon) { const allPassFields = document.querySelectorAll('.signup-pass-field'); const allIcons = document.querySelectorAll('#signup-modal .pass-toggle'); const isPassword = allPassFields[0].type === "password"; allPassFields.forEach(field => { field.type = isPassword ? "text" : "password"; }); allIcons.forEach(ic => { if (isPassword) ic.classList.replace('fa-eye', 'fa-eye-slash'); else ic.classList.replace('fa-eye-slash', 'fa-eye'); }); }
+
+function handleSignup() {
+    const username = document.getElementById('signup-user').value.trim();
+    const password = document.getElementById('signup-pass').value;
+    const confirm = document.getElementById('signup-pass-confirm').value;
+    if (!username || !password) return alert("ENTER ALL FIELDS");
+    if (username.length > 10) return alert("USERNAME MAX 10 LETTERS");
+    if (password.length < 5 || password.length > 10) return alert("PASSWORD MUST BE 5-10 LETTERS");
+    if (password !== confirm) return alert("PASSWORDS DO NOT MATCH");
+    if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) return alert("USERNAME TAKEN");
+    users.push({ username, password, charData: { ...DEFAULT_CHAR }, settings: { ...DEFAULT_SETTINGS }, bestScores: { stage01: 0, stage02: 0, stage03: 0, stage04: 0, stage05: 0 } });
+    saveToLocalStorage(); saveToWindow(); alert("ACCOUNT CREATED! LOG IN NOW"); closeAuthModals();
+}
+
+function handleLogin() {
+    const username = document.getElementById('login-user').value.trim();
+    const password = document.getElementById('login-pass').value;
+    const found = users.find(u => u.username === username && u.password === password);
+    if (found) {
+        if (!found.bestScores) found.bestScores = { stage01: 0, stage02: 0, stage03: 0, stage04: 0, stage05: 0 };
+        if (!found.settings) found.settings = { ...DEFAULT_SETTINGS };
+        if (!found.charData) found.charData = { ...DEFAULT_CHAR };
+        currentUser = found; currentChar = found.charData; gameSettings = found.settings;
+        saveToLocalStorage(); saveToWindow(); updateAuthUI();
+        document.getElementById('bgm-volume').value = gameSettings.bgm;
+        document.getElementById('sfx-volume').value = gameSettings.sfx;
+        document.getElementById('bgm-value').innerText = Math.round(gameSettings.bgm * 100);
+        document.getElementById('sfx-value').innerText = Math.round(gameSettings.sfx * 100);
+        document.getElementById('auto-restart').checked = gameSettings.autoRestart;
+        document.getElementById('show-percentage').checked = gameSettings.showPercentage;
+        document.getElementById('display-death').checked = gameSettings.displayDeath;
+        document.getElementById('menu-bgm').volume = gameSettings.bgm;
+        updatePreview(); updateColorSurfaces(); updateActiveSelection(); closeAuthModals();
+        alert(`WELCOME BACK, ${username.toUpperCase()}!`);
+    } else { alert("INVALID CREDENTIALS"); }
+}
+
+function handleLogout() {
+    if (currentUser) { const userIndex = users.findIndex(u => u.username === currentUser.username); if (userIndex !== -1) { users[userIndex].charData = { ...currentChar }; users[userIndex].settings = { ...gameSettings }; } }
+    currentUser = null; currentChar = { ...DEFAULT_CHAR }; gameSettings = { ...DEFAULT_SETTINGS };
+    saveToLocalStorage(); saveToWindow(); updateAuthUI();
+    document.getElementById('bgm-volume').value = gameSettings.bgm;
+    document.getElementById('sfx-volume').value = gameSettings.sfx;
+    document.getElementById('bgm-value').innerText = Math.round(gameSettings.bgm * 100);
+    document.getElementById('sfx-value').innerText = Math.round(gameSettings.sfx * 100);
+    document.getElementById('auto-restart').checked = gameSettings.autoRestart;
+    document.getElementById('show-percentage').checked = gameSettings.showPercentage;
+    document.getElementById('display-death').checked = gameSettings.displayDeath;
+    document.getElementById('menu-bgm').volume = gameSettings.bgm;
+    updatePreview(); updateColorSurfaces(); updateActiveSelection(); alert("LOGGED OUT");
+}
+
+function updateAuthUI() { const display = document.getElementById('user-display'); const authBtns = document.getElementById('auth-buttons-group'); const logoutBtn = document.getElementById('logout-btn'); if (currentUser) { display.innerText = `HI, ${currentUser.username.toUpperCase()}`; display.style.display = 'block'; authBtns.style.display = 'none'; logoutBtn.style.display = 'block'; } else { display.style.display = 'none'; authBtns.style.display = 'flex'; logoutBtn.style.display = 'none'; } }
+
+function hueToHex(h) { let r, g, b; const c = 1, x = c * (1 - Math.abs((h / 60) % 2 - 1)); if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; } else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; } else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; } return '#' + [r, g, b].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join(''); }
+
+document.getElementById('open-custom').onclick = () => { updateActiveSelection(); customModal.style.display = 'flex'; };
+document.getElementById('close-custom').onclick = () => { customModal.style.display = 'none'; saveToLocalStorage(); saveToWindow(); };
+document.querySelectorAll('.design-opt').forEach(opt => { opt.onclick = () => { document.querySelector('.design-opt.active').classList.remove('active'); opt.classList.add('active'); currentChar.img = opt.dataset.img; updatePreview(); updateColorSurfaces(); saveToLocalStorage(); saveToWindow(); }; });
+document.getElementById('hue-slider').oninput = (e) => { currentChar.color = hueToHex(parseInt(e.target.value)); updatePreview(); updateColorSurfaces(); saveToLocalStorage(); saveToWindow(); };
+function updatePreview() { document.getElementById('preview-img').src = currentChar.img; document.getElementById('preview-overlay').style.backgroundColor = currentChar.color; }
+function updateColorSurfaces() { document.querySelectorAll('.color-surface').forEach(s => s.style.backgroundColor = currentChar.color); const po = document.getElementById('preview-overlay'); if (po) po.style.backgroundColor = currentChar.color; }
+function updateActiveSelection() { document.querySelectorAll('.design-opt').forEach(opt => { opt.classList.remove('active'); if (opt.dataset.img === currentChar.img) opt.classList.add('active'); }); }
+
+document.getElementById('settings-btn').onclick = () => settingsModal.style.display = 'flex';
+document.getElementById('close-settings').onclick = () => { settingsModal.style.display = 'none'; saveToLocalStorage(); saveToWindow(); };
+document.getElementById('bgm-volume').oninput = (e) => { gameSettings.bgm = parseFloat(e.target.value); document.getElementById('bgm-value').innerText = Math.round(gameSettings.bgm * 100); document.getElementById('menu-bgm').volume = gameSettings.bgm; saveToLocalStorage(); saveToWindow(); };
+document.getElementById('sfx-volume').oninput = (e) => { gameSettings.sfx = parseFloat(e.target.value); document.getElementById('sfx-value').innerText = Math.round(gameSettings.sfx * 100); saveToLocalStorage(); saveToWindow(); };
+document.querySelectorAll('#settings-toggles input').forEach(input => { input.onchange = () => { gameSettings.autoRestart = document.getElementById('auto-restart').checked; gameSettings.showPercentage = document.getElementById('show-percentage').checked; gameSettings.displayDeath = document.getElementById('display-death').checked; saveToLocalStorage(); saveToWindow(); }; });
+
+document.getElementById('open-about').onclick = () => { aboutModal.style.display = 'flex'; };
+document.getElementById('close-about').onclick = () => { aboutModal.style.display = 'none'; };
+
+function createParticle() { const container = document.getElementById('particle-container'); const particle = document.createElement('div'); particle.className = 'floating-particle'; const size = Math.random() * 20 + 5; particle.style.width = particle.style.height = `${size}px`; particle.style.left = Math.random() * 100 + 'vw'; const duration = Math.random() * 8 + 7; particle.style.animationDuration = `${duration}s`; container.appendChild(particle); setTimeout(() => particle.remove(), duration * 1000); }
+setInterval(createParticle, 600);
+
+function loadLevels() {
+    if (!currentUser) { notificationModal.style.display = 'flex'; return; }
+    document.getElementById('iframe-container').style.display = 'block';
+    document.getElementById('levels-iframe').src = 'levels.html';
+}
+
+window.addEventListener('message', function(event) {
+    if (event.data === 'navigate-back') {
+        document.getElementById('iframe-container').style.display = 'none';
+        document.getElementById('levels-iframe').src = '';
+    }
+    if (event.data === 'stopMenuBgm') { const menuBgm = document.getElementById('menu-bgm'); menuBgm.pause(); menuBgm.currentTime = 0; }
+    if (event.data === 'startMenuBgm') { const menuBgm = document.getElementById('menu-bgm'); if (menuBgm.paused) { menuBgm.volume = gameSettings.bgm; menuBgm.currentTime = 0; menuBgm.play().catch(() => {}); } }
+    if (event.data && event.data.type === 'updateScore') {
+        if (currentUser) {
+            const userIndex = users.findIndex(u => u.username === currentUser.username);
+            if (userIndex !== -1) {
+                if (!users[userIndex].bestScores) users[userIndex].bestScores = { stage01: 0, stage02: 0, stage03: 0, stage04: 0, stage05: 0 };
+                const currentBest = users[userIndex].bestScores[event.data.stage] || 0;
+                if (event.data.percentage > currentBest) { users[userIndex].bestScores[event.data.stage] = event.data.percentage; currentUser.bestScores = users[userIndex].bestScores; saveToLocalStorage(); saveToWindow(); }
+                const iframe = document.getElementById('levels-iframe');
+                if (iframe) { iframe.contentWindow.postMessage({ type: 'updateScoreDisplay', scores: users[userIndex].bestScores }, '*'); }
+            }
+        }
+    }
+    if (event.data && event.data.type === 'requestScores') {
+        const iframe = document.getElementById('levels-iframe');
+        if (iframe && currentUser) {
+            const userData = users.find(u => u.username === currentUser.username);
+            const scores = userData && userData.bestScores ? userData.bestScores : { stage01: 0, stage02: 0, stage03: 0, stage04: 0, stage05: 0 };
+            iframe.contentWindow.postMessage({ type: 'scoresData', scores: scores }, '*');
+        }
+    }
+    if (event.data && event.data.type === 'requestSettings') {
+        const iframe = document.getElementById('levels-iframe');
+        if (iframe && currentUser) { iframe.contentWindow.postMessage({ type: 'settingsData', settings: { ...gameSettings } }, '*'); }
+    }
+    if (event.data && event.data.type === 'requestCharData') {
+        const iframe = document.getElementById('levels-iframe');
+        if (iframe && currentUser) { iframe.contentWindow.postMessage({ type: 'charData', char: { ...currentChar } }, '*'); }
+    }
+});
+
+window.onclick = (e) => { if (e.target.classList.contains('auth-modal')) closeAuthModals(); if (e.target == customModal) customModal.style.display = "none"; if (e.target == settingsModal) settingsModal.style.display = "none"; if (e.target == aboutModal) aboutModal.style.display = "none"; if (e.target == notificationModal) notificationModal.style.display = "none"; };
+</script>
+</body>
+</html>
